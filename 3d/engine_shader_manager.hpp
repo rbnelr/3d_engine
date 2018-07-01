@@ -180,9 +180,12 @@ struct Shader_Manager {
 
 	Shader* get_shader (std::string const& name) {
 		auto shad = shaders.find(name);
-		if (shad == shaders.end())
-			shad = shaders.emplace(name, Shader::load(name) ).first;
-		
+		if (shad == shaders.end()) {
+			auto tmp = Shader::load(name);
+			if (tmp.get_prog_handle() == 0)
+				return nullptr;
+			shad = shaders.emplace(name, std::move(tmp)).first;
+		}
 		return &shad->second;
 	}
 };

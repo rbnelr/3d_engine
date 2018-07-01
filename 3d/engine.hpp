@@ -9,3 +9,7 @@
 #include "engine_mesh_manager.hpp"
 #include "engine_shader_manager.hpp"
 #include "engine_texture.hpp"
+
+#include "engine_draw.hpp"
+
+#include "engine_dear_imgui.hpp"

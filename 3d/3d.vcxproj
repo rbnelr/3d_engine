@@ -133,12 +133,19 @@
   <ItemGroup>
     <None Include="shaders\default_3d.frag" />
     <None Include="shaders\default_3d.vert" />
+    <None Include="shaders\imgui.frag" />
+    <None Include="shaders\imgui.vert" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="TODO.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="deps\dear_imgui\imgui.h" />
+    <ClInclude Include="engine_draw.hpp" />
     <ClInclude Include="engine_includes.hpp" />
+    <ClInclude Include="deps\dear_imgui\imgui.cpp" />
+    <ClInclude Include="deps\dear_imgui\imgui_demo.cpp" />
+    <ClInclude Include="deps\dear_imgui\imgui_draw.cpp" />
     <ClCompile Include="main.cpp" />
     <ClInclude Include="engine_mesh_manager.hpp" />
     <ClInclude Include="engine_shader_manager.hpp" />
@@ -150,7 +157,7 @@
     <ClInclude Include="basic_typedefs.hpp" />
     <ClInclude Include="colors.hpp" />
     <ClInclude Include="compiler_specific.hpp" />
-    <ClInclude Include="dear_imgui.hpp" />
+    <ClInclude Include="engine_dear_imgui.hpp" />
     <ClInclude Include="defer.hpp" />
     <ClInclude Include="engine.hpp" />
     <ClInclude Include="image_processing.hpp" />

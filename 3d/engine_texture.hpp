@@ -154,14 +154,16 @@ public:
 		}
 	}
 
-	void set_border (border_e border, rgba8 border_color=0) {
+	void set_border (border_e border, srgba8 border_color=0) {
 		GLenum mode;
-		rgbaf border_colorf;
+		//srgbaf border_colorf;
 
 		switch (border) {
 			case BORDER_CLAMP:	mode = GL_CLAMP_TO_EDGE; break;
-			case BORDER_COLOR:	mode = GL_CLAMP_TO_BORDER;
-				border_colorf = (rgbaf)border_color / 255;	break;
+			//case BORDER_COLOR:	mode = GL_CLAMP_TO_BORDER;
+			//	border_colorf = (srgbaf)border_color / 255;	break;
+
+			case BORDER_COLOR: // gamme correctness ?
 			default: assert(not_implemented);
 		}
 
@@ -170,8 +172,8 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mode);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode);
 
-		if (border == BORDER_COLOR)
-			glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &border_colorf.x);
+		//if (border == BORDER_COLOR)
+		//	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &border_colorf.x);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
@@ -181,7 +183,7 @@ void swap (Texture2D& l, Texture2D& r) {
 	std::swap(l.handle, r.handle);
 }
 
-Texture2D stream_texture (void const* pixels, iv2 size_px, pixel_format_e format, mipmap_mode_e mips=GEN_MIPMAPS, minmag_filter_e minmag=FILTER_TRILINEAR, aniso_filter_e aniso=FILTER_MAX_ANISO, border_e border=BORDER_CLAMP, rgba8 border_color=0) {
+Texture2D upload_texture (void const* pixels, iv2 size_px, pixel_format_e format, mipmap_mode_e mips=GEN_MIPMAPS, minmag_filter_e minmag=FILTER_TRILINEAR, aniso_filter_e aniso=FILTER_MAX_ANISO, border_e border=BORDER_CLAMP, srgba8 border_color=0) {
 	auto tex = Texture2D::generate();
 	tex.upload(format, pixels, size_px);
 
@@ -196,7 +198,7 @@ Texture2D stream_texture (void const* pixels, iv2 size_px, pixel_format_e format
 	return tex;
 }
 
-Texture2D upload_texture_from_file (std::string const& filepath, pixel_format_e format, mipmap_mode_e mips=GEN_MIPMAPS, minmag_filter_e minmag=FILTER_TRILINEAR, aniso_filter_e aniso=FILTER_MAX_ANISO, border_e border=BORDER_CLAMP, rgba8 border_color=0) {
+Texture2D upload_texture_from_file (std::string const& filepath, pixel_format_e format, mipmap_mode_e mips=GEN_MIPMAPS, minmag_filter_e minmag=FILTER_TRILINEAR, aniso_filter_e aniso=FILTER_MAX_ANISO, border_e border=BORDER_CLAMP, srgba8 border_color=0) {
 	Texture2D tex;
 
 	iv2 size;
@@ -222,7 +224,7 @@ Texture2D upload_texture_from_file (std::string const& filepath, pixel_format_e 
 		return Texture2D(); // return error code ?
 	}
 
-	tex = stream_texture(pixels, size, format, mips, minmag, aniso, border, border_color);
+	tex = upload_texture(pixels, size, format, mips, minmag, aniso, border, border_color);
 
 	return tex;
 }
@@ -230,7 +232,7 @@ Texture2D upload_texture_from_file (std::string const& filepath, pixel_format_e 
 struct Texture_Manager {
 	std::unordered_map<std::string, Texture2D> textures;
 	
-	Texture2D* get_texture (std::string const& name, pixel_format_e format, mipmap_mode_e mips, minmag_filter_e minmag, aniso_filter_e aniso, border_e border, rgba8 border_color) {
+	Texture2D* get_texture (std::string const& name, pixel_format_e format, mipmap_mode_e mips, minmag_filter_e minmag, aniso_filter_e aniso, border_e border, srgba8 border_color) {
 		auto shad = textures.find(name);
 		if (shad == textures.end())
 			shad = textures.emplace(name, upload_texture_from_file(name, format, mips, minmag, aniso, border, border_color)).first;
@@ -241,7 +243,7 @@ struct Texture_Manager {
 
 Texture_Manager texture_manager;
 
-Texture2D* get_texture (std::string const& name, pixel_format_e format, mipmap_mode_e mips=GEN_MIPMAPS, minmag_filter_e minmag=FILTER_TRILINEAR, aniso_filter_e aniso=FILTER_MAX_ANISO, border_e border=BORDER_CLAMP, rgba8 border_color=0) {
+Texture2D* get_texture (std::string const& name, pixel_format_e format, mipmap_mode_e mips=GEN_MIPMAPS, minmag_filter_e minmag=FILTER_TRILINEAR, aniso_filter_e aniso=FILTER_MAX_ANISO, border_e border=BORDER_CLAMP, srgba8 border_color=0) {
 	return texture_manager.get_texture(name, format, mips, minmag, aniso, border, border_color);
 }
 

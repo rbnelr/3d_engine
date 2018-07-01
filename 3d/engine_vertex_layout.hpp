@@ -32,14 +32,14 @@ struct Data_Vertex_Layout { // assume interleaved (array of vertex structs)
 struct Default_Vertex_2d {
 	v2		pos_screen;
 	v2		uv				= 0.5f;
-	rgba8	col_lrgba		= white;
+	lrgba	col_lrgba		= white.to_lrgb();
 
 	static const Data_Vertex_Layout layout;
 };
 const Data_Vertex_Layout Default_Vertex_2d::layout = { (int)sizeof(Default_Vertex_2d), {
 	{ "pos_screen",			FV2,	(int)offsetof(Default_Vertex_2d, pos_screen) },
 	{ "uv",					FV2,	(int)offsetof(Default_Vertex_2d, uv) },
-	{ "col_lrgba",			RGBA8,	(int)offsetof(Default_Vertex_2d, col_lrgba) }
+	{ "col_lrgba",			FV4,	(int)offsetof(Default_Vertex_2d, col_lrgba) }
 }};
 
 struct Default_Vertex_3d {
@@ -47,7 +47,7 @@ struct Default_Vertex_3d {
 	v3		normal_model	= v3( 0, 0,+1);
 	v4		tangent_model	= v4( 0,+1, 0,+1);
 	v2		uv				= 0.5f;
-	rgba8	col_lrgba		= white;
+	lrgba	col_lrgba		= white.to_lrgb();
 
 	static const Data_Vertex_Layout layout;
 };
@@ -56,7 +56,7 @@ const Data_Vertex_Layout Default_Vertex_3d::layout = { (int)sizeof(Default_Verte
 	{ "normal_model",		FV3,	(int)offsetof(Default_Vertex_3d, normal_model) },
 	{ "tangent_model",		FV4,	(int)offsetof(Default_Vertex_3d, tangent_model) },
 	{ "uv",					FV2,	(int)offsetof(Default_Vertex_3d, uv) },
-	{ "col_lrgba",			RGBA8,	(int)offsetof(Default_Vertex_3d, col_lrgba) }
+	{ "col_lrgba",			FV4,	(int)offsetof(Default_Vertex_3d, col_lrgba) }
 }};
 
 //

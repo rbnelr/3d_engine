@@ -64,6 +64,6 @@ namespace engine {
 #include "colors.hpp"
 
 namespace engine {
-	constexpr rgba8 black = rgba8(0,0,0,255);
-	constexpr rgba8 white = rgba8(255);
+	constexpr srgba8 black = 0;
+	constexpr srgba8 white = 255;
 }

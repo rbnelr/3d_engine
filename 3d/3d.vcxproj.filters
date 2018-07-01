@@ -21,6 +21,12 @@
     <None Include="shaders\default_3d.frag">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\imgui.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\imgui.vert">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="TODO.txt" />
@@ -28,6 +34,15 @@
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="deps\dear_imgui\imgui.cpp">
+      <Filter>deps</Filter>
+    </ClCompile>
+    <ClCompile Include="deps\dear_imgui\imgui_demo.cpp">
+      <Filter>deps</Filter>
+    </ClCompile>
+    <ClCompile Include="deps\dear_imgui\imgui_draw.cpp">
+      <Filter>deps</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -41,9 +56,6 @@
       <Filter>src_reuseable</Filter>
     </ClInclude>
     <ClInclude Include="compiler_specific.hpp">
-      <Filter>src_reuseable</Filter>
-    </ClInclude>
-    <ClInclude Include="dear_imgui.hpp">
       <Filter>src_reuseable</Filter>
     </ClInclude>
     <ClInclude Include="defer.hpp">
@@ -95,6 +107,15 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="engine_texture.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_dear_imgui.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="deps\dear_imgui\imgui.h">
+      <Filter>deps</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_draw.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

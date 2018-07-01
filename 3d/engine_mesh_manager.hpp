@@ -19,17 +19,17 @@ public:
 		glGenBuffers(1, &vbo.handle);
 		return vbo;
 	}
-	static VBO gen_and_upload (void const* vertex_data, int vertex_size, bool stream=false) {
+	static VBO gen_and_upload (void const* vertex_data, int total_size, bool stream=false) {
 		auto vbo = generate();
 		glBindBuffer(GL_ARRAY_BUFFER, vbo.handle);
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vertex_size, vertex_data, stream ? GL_STREAM_DRAW : GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)total_size, vertex_data, stream ? GL_STREAM_DRAW : GL_STATIC_DRAW);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		return vbo;
 	}
-	void reupload (void const* vertex_data, int vertex_size) {
+	void reupload (void const* vertex_data, int total_size) {
 		glBindBuffer(GL_ARRAY_BUFFER, handle);
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vertex_size, NULL, GL_DYNAMIC_DRAW); // Buffer orphan on reupload
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vertex_size, vertex_data, GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)total_size, NULL, GL_DYNAMIC_DRAW); // Buffer orphan on reupload
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)total_size, vertex_data, GL_DYNAMIC_DRAW);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
@@ -39,6 +39,41 @@ inline void swap (VBO& l, VBO& r) {
 	::std::swap(l.handle, r.handle);
 }
 
+class EBO {
+	MOVE_ONLY_CLASS(EBO)
+
+		GLuint handle = 0;
+
+public:
+	~EBO () {
+		if (handle) // maybe this helps to optimize out destructing of unalloced vbos
+			glDeleteBuffers(1, &handle); // would be ok to delete unalloced vbo (handle = 0)
+	}
+
+	static EBO generate () {
+		EBO ebo;
+		glGenBuffers(1, &ebo.handle);
+		return ebo;
+	}
+	static EBO gen_and_upload (void const* index_data, int total_size, bool stream=false) {
+		auto ebo = generate();
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo.handle);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)total_size, index_data, stream ? GL_STREAM_DRAW : GL_STATIC_DRAW);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		return ebo;
+	}
+	void reupload (void const* index_data, int total_size) {
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, handle);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)total_size, NULL, GL_DYNAMIC_DRAW); // Buffer orphan on reupload
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)total_size, index_data, GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+
+	GLuint get_handle () const {	return handle; }
+};
+inline void swap (EBO& l, EBO& r) {
+	::std::swap(l.handle, r.handle);
+}
 
 struct Mesh_Manager {
 	
