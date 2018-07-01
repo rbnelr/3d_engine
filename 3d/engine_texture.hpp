@@ -16,6 +16,7 @@ enum pixel_format_e {
 	// linear
 	PF_LR8,
 	PF_LRGBA8,
+	PF_SRGB8, // alpha is always linear in opengl
 	PF_SRGBA8, // alpha is always linear in opengl
 
 	PF_LRF,
@@ -43,26 +44,15 @@ enum border_e {
 // minimal but still useful texture class
 // if you need the size of the texture or the mipmap count just create a wrapper class
 class Texture2D {
-	friend void swap (Texture2D& l, Texture2D& r);
+	MOVE_ONLY_CLASS(Texture2D)
 
 	GLuint	handle = 0;
 
 public:
-
-	// default alloc unalloced texture
-	Texture2D () {}
-	// auto free texture
 	~Texture2D () {
 		if (handle) // maybe this helps to optimize out destructing of unalloced textures
 			glDeleteTextures(1, &handle); // would be ok to delete unalloced texture (gpu_handle = 0)
 	}
-
-	// no implicit copy
-	Texture2D& operator= (Texture2D& r) = delete;
-	Texture2D (Texture2D& r) = delete;
-	// move operators
-	Texture2D& operator= (Texture2D&& r) {	swap(*this, r);	return *this; }
-	Texture2D (Texture2D&& r) {				swap(*this, r); }
 
 	//
 	GLuint	get_handle () const {	return handle; }
@@ -74,7 +64,7 @@ public:
 		return tex;
 	}
 
-	void upload_mipmap (int mip, pixel_format_e format, void const* pixels, iv2 size_px) {
+	void upload_mipmap (void const* pixels, iv2 size_px, int mip, pixel_format_e format) {
 
 		GLenum internal_format;
 		GLenum cpu_format;
@@ -83,6 +73,7 @@ public:
 		switch (format) {
 			case PF_LR8:	internal_format = GL_R8;			cpu_format = GL_RED;	type = GL_UNSIGNED_BYTE;	break;
 			case PF_LRGBA8:	internal_format = GL_RGBA8;			cpu_format = GL_RGBA;	type = GL_UNSIGNED_BYTE;	break;
+			case PF_SRGB8:	internal_format = GL_SRGB8;			cpu_format = GL_RGB;	type = GL_UNSIGNED_BYTE;	break;
 			case PF_SRGBA8:	internal_format = GL_SRGB8_ALPHA8;	cpu_format = GL_RGBA;	type = GL_UNSIGNED_BYTE;	break;
 
 			case PF_LRF:	internal_format = GL_R32F;			cpu_format = GL_RED;	type = GL_FLOAT;			break;
@@ -99,8 +90,10 @@ public:
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
+	void alloc_mipmap (iv2 size_px, int mip, pixel_format_e format) {
+		upload_mipmap(nullptr, size_px, mip, format);
+	}
 
-private:
 	void set_active_mips (int first, int last) { // i am not sure that just setting abitrary values for these actually works correctly
 		glBindTexture(GL_TEXTURE_2D, handle);
 
@@ -109,14 +102,7 @@ private:
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
-public:
-
-	// single mip
-	void upload (pixel_format_e format, void const* pixels, iv2 size_px) {
-		upload_mipmap(0, format, pixels, size_px);
-
-		set_active_mips(0, 0); // no mips
-	}
+	
 	/* // doesnt work ??
 	void gen_mipmaps () {
 	glBindTexture(GL_TEXTURE_2D, gpu_handle);
@@ -185,11 +171,25 @@ void swap (Texture2D& l, Texture2D& r) {
 
 Texture2D upload_texture (void const* pixels, iv2 size_px, pixel_format_e format, mipmap_mode_e mips=GEN_MIPMAPS, minmag_filter_e minmag=FILTER_TRILINEAR, aniso_filter_e aniso=FILTER_MAX_ANISO, border_e border=BORDER_CLAMP, srgba8 border_color=0) {
 	auto tex = Texture2D::generate();
-	tex.upload(format, pixels, size_px);
+	tex.upload_mipmap(pixels, size_px, 0, format);
+
+	tex.set_active_mips(0, 0); // no mips
 
 	if (mips == GEN_MIPMAPS) {
 		assert(not_implemented);
 	}
+
+	tex.set_minmag_filtering(minmag);
+	tex.enable_filtering_anisotropic(aniso);
+	tex.set_border(border, border_color);
+
+	return tex;
+}
+Texture2D alloc_texture (iv2 size_px, pixel_format_e format, minmag_filter_e minmag=FILTER_TRILINEAR, aniso_filter_e aniso=FILTER_MAX_ANISO, border_e border=BORDER_CLAMP, srgba8 border_color=0) {
+	auto tex = Texture2D::generate();
+	tex.alloc_mipmap(size_px, 0, format);
+
+	tex.set_active_mips(0, 0); // no mips
 
 	tex.set_minmag_filtering(minmag);
 	tex.enable_filtering_anisotropic(aniso);

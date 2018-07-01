@@ -99,16 +99,6 @@ int main () {
 
 		begin_imgui(inp, dt);
 
-		lrgb clear_color_lrgb = srgb8(40).to_lrgb();
-
-		glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-		glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-
-		#if 1
-		glClearColor(clear_color_lrgb.x,clear_color_lrgb.y,clear_color_lrgb.z,255);
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-		#endif
-
 		set_shared_uniform("common", "screen_size", (v2)inp.wnd_size_px);
 		set_shared_uniform("common", "mcursor_pos", inp.mouse_cursor_pos_screen_buttom_up_pixel_center());
 
@@ -131,12 +121,42 @@ int main () {
 		set_shared_uniform("_3d_view", "cam_to_clip", cam_to_clip);
 		
 		//
+		struct Framebuffer {
+			Texture2D	tex;
+			iv2			size = -1;
+			FBO			fbo;
+		};
+		static Framebuffer doublebuffer_framebuffers[2];
+
+		static Framebuffer* framebuffer = &doublebuffer_framebuffers[0];
+
+		static FBO fbo;
+
+		if (any(inp.wnd_size_px != framebuffer->size)) {
+			framebuffer->size = inp.wnd_size_px;
+			framebuffer->tex = alloc_texture(framebuffer->size, PF_SRGB8);
+			framebuffer->fbo = draw_to_texture(framebuffer->tex, framebuffer->size);
+		}
+
+		framebuffer->fbo.bind();
+
+		lrgb clear_color_lrgb = srgb8(30).to_lrgb();
+
+
+		glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+		glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
 		glDisable(GL_SCISSOR_TEST);
 
+		glClearColor(clear_color_lrgb.x,clear_color_lrgb.y,clear_color_lrgb.z,255);
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+		
+		static Texture2D* prev_framebuffer = nullptr;
+		
 		std::vector<Default_Vertex_3d> quad;
 
 		for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
@@ -146,19 +166,22 @@ int main () {
 			quad.push_back(v);
 		}
 
-		for (int y=-5; y<5; ++y) {
-			for (int x=-5; x<5; ++x) {
+		static int base_cycle = 0;
+		if (inp.buttons['C'].went_down)
+			base_cycle++;
+
+		base_cycle %= 4;
+
+		for (int y=0; y<2; ++y) {
+			for (int x=0; x<2; ++x) {
 				
 				auto s = use_shader(shad_default_3d);
 				if (s) {
 					set_uniform(s, "model_to_world", translate4(v3((v2)iv2(y,x) * 1.2f, 0)));
 					
-					static int cycle = 0;
-					//if (inp.buttons['C'].went_down)
-					//	cycle++;
-					cycle = (int)(glfwGetTime() / 2);
+					int cycle = base_cycle +y * 2 +x;
 
-					cycle %= 3;
+					cycle %= 4;
 
 					Texture2D tmp;
 
@@ -178,12 +201,61 @@ int main () {
 						static Texture2D white_tex = upload_texture(&white, iv2(1,1), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST);
 			
 						bind_texture(s, "tex", 0, white_tex);
+					} else if ( cycle == 3 ) {
+						
+						if (prev_framebuffer)
+							bind_texture(s, "tex", 0, *prev_framebuffer);
+						else
+							bind_texture(s, "tex", 0, upload_texture(&black, iv2(1,1), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST));
 					}
 
 					draw_stream_triangles(*s, quad);
 				}
 			}
 		}
+
+		draw_to_screen();
+
+		glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+		glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+
+		glDisable(GL_BLEND);
+		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
+		glDisable(GL_SCISSOR_TEST);
+		
+		{//draw_fullscreen_quad();
+			
+			struct Vertex_2d {
+				v4		pos_clip;
+				v2		uv;
+			};
+			const Data_Vertex_Layout layout = { (int)sizeof(Vertex_2d), {
+				{ "pos_clip",			FV4,	(int)offsetof(Vertex_2d, pos_clip) },
+				{ "uv",					FV2,	(int)offsetof(Vertex_2d, uv) },
+			}};
+			
+			auto shad = use_shader("shaders/fullscreen_quad");
+			assert(shad);
+
+			static Vertex_2d fullscreen_quad[] = {
+				{ v4(+1,-1, 0,1), v2(1,0) },
+				{ v4(+1,+1, 0,1), v2(1,1) },
+				{ v4(-1,-1, 0,1), v2(0,0) },
+				{ v4(-1,-1, 0,1), v2(0,0) },
+				{ v4(+1,+1, 0,1), v2(1,1) },
+				{ v4(-1,+1, 0,1), v2(0,1) },
+			};
+			static VBO vbo = stream_vertex_data(fullscreen_quad, sizeof(fullscreen_quad));
+			use_vertex_data(*shad, layout, vbo);
+
+			bind_texture(shad, "tex", 0, framebuffer->tex);
+			draw_triangles(*shad, 0, 6);
+		}
+
+		prev_framebuffer = &framebuffer->tex;
+
+		framebuffer = &doublebuffer_framebuffers[ (framebuffer -&doublebuffer_framebuffers[0]) ^ 1 ];
 
 		#if 0
 		auto s = use_shader("skybox_cubemap_gen");

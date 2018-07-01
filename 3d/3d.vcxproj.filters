@@ -27,6 +27,12 @@
     <None Include="shaders\imgui.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\fullscreen_quad.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\fullscreen_quad.vert">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="TODO.txt" />
@@ -116,6 +122,9 @@
       <Filter>deps</Filter>
     </ClInclude>
     <ClInclude Include="engine_draw.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_draw_to_texture.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
