@@ -134,7 +134,7 @@ int main () {
 
 		if (any(inp.wnd_size_px != framebuffer->size)) {
 			framebuffer->size = inp.wnd_size_px;
-			framebuffer->tex = alloc_texture(framebuffer->size, PF_SRGB8);
+			framebuffer->tex = alloc_texture(framebuffer->size, PF_LRGBF);
 			framebuffer->fbo = draw_to_texture(framebuffer->tex, framebuffer->size);
 		}
 

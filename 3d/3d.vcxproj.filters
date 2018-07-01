@@ -35,9 +35,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="TODO.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -127,5 +124,8 @@
     <ClInclude Include="engine_draw_to_texture.hpp">
       <Filter>src</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="todo.txt" />
   </ItemGroup>
 </Project>
