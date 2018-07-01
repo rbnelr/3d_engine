@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="shaders">
+      <UniqueIdentifier>{080df10e-1db5-4f70-8f16-75c6bb0aeaee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps">
+      <UniqueIdentifier>{32ec7525-87d6-4678-a43e-602eea403ee0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{8e9124f7-573d-42da-8c5e-1f399c3d3e7e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src_reuseable">
+      <UniqueIdentifier>{f62acd0b-94fa-42ec-bda7-3a2a92c9cf6c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\default_3d.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\default_3d.frag">
+      <Filter>shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="TODO.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="engine.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="basic_typedefs.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="colors.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="compiler_specific.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="dear_imgui.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="defer.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="image_processing.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="math.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocessor_stuff.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="prints.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="simple_file_io.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="sorted_vector.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="vector.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="vector_tv2.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="vector_tv3.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="vector_tv4.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_window.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_vertex_layout.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_mesh_manager.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_shader_manager.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_includes.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="engine_texture.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
