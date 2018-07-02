@@ -127,176 +127,177 @@ int main () {
 		set_shared_uniform("_3d_view", "world_to_cam", world_to_cam.m4());
 		set_shared_uniform("_3d_view", "cam_to_clip", cam_to_clip);
 		
-		//
-		struct Framebuffer {
-			Texture2D	tex;
-			iv2			size = -1;
-			FBO			fbo;
-		};
-		static Framebuffer doublebuffer_framebuffers[2];
-
-		static Framebuffer* framebuffer = &doublebuffer_framebuffers[0];
-
-		static FBO fbo;
-
-		if (any(inp.wnd_size_px != framebuffer->size)) {
-			framebuffer->size = inp.wnd_size_px;
-			framebuffer->tex = alloc_texture(framebuffer->size, PF_LRGBF);
-			framebuffer->fbo = draw_to_texture(framebuffer->tex, framebuffer->size);
-		}
-
-		framebuffer->fbo.bind();
-
-		lrgb clear_color_lrgb = srgb8(30).to_lrgb();
-
-
-		glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-		glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-
-		glDisable(GL_BLEND);
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_CULL_FACE);
-		glDisable(GL_SCISSOR_TEST);
-
-		glClearColor(clear_color_lrgb.x,clear_color_lrgb.y,clear_color_lrgb.z,255);
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-		
-		static Texture2D* prev_framebuffer = nullptr;
-		
-		std::vector<Default_Vertex_3d> quad;
-
-		for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
-			Default_Vertex_3d v;
-			v.pos_model = v3(p -0.5f, +0.5f);
-			v.uv = p;
-			v.col_lrgba = srgba8(230).to_lrgb();
-			quad.push_back(v);
-		}
-
-		for (int face=0; face<6; ++face) {
-				
-			auto s = use_shader(shad_default_3d);
-			if (s) {
-				m3 model_to_world;
-				
-				if (		face == 0 ) {
-					model_to_world = m3::ident();
-				} else if (	face == 1 ) {
-					model_to_world = rotate3_Z(deg(180)) * rotate3_X(deg(180));
-				} else if (	face == 2 ) {
-					model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(90));
-				} else if (	face == 3 ) {
-					model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(-90));
-				} else if (	face == 4 ) {
-					model_to_world = rotate3_Y(deg(180)) * rotate3_X(deg(-90));
-				} else if (	face == 5 ) {
-					model_to_world = rotate3_X(deg(90));
-				}
-										
-				set_uniform(s, "model_to_world", m4(model_to_world));
-					
-				int tex_select = face / 2;
-
-				Texture2D tmp;
-
-				if (		tex_select == 0 ) {
-					srgba8 pixels[16][16];
-					for (int y=0; y<16; ++y) {
-						for (int x=0; x<16; ++x) {
-							pixels[y][x] = BOOL_XOR(BOOL_XOR(x % 2, y % 2), mymod((flt)glfwGetTime(), 1.0f) < 0.5f) ? srgba8(220,150,150,255) : srgba8(255);
-						}
-					}
-				
-					tmp = upload_texture(pixels, iv2(16,16), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST);
-					bind_texture(s, "tex", 0, tmp);
-				} else if ( tex_select == 1 ) {
-					bind_texture(s, "tex", 0, *get_texture("dab.png", PF_SRGBA8, NO_MIPMAPS));
-				} else if ( tex_select == 2 ) {
-						
-					if (prev_framebuffer)
-						bind_texture(s, "tex", 0, *prev_framebuffer);
-					else
-						bind_texture(s, "tex", 0, upload_texture(&black, iv2(1,1), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST));
-				}
-
-				draw_stream_triangles(*s, quad);
-			}
-		}
-
-		draw_to_screen();
-
-		glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-		glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-
-		glDisable(GL_BLEND);
-		glDisable(GL_DEPTH_TEST);
-		glDisable(GL_CULL_FACE);
-		glDisable(GL_SCISSOR_TEST);
-		
-		{//draw_fullscreen_quad();
-			
-			struct Vertex_2d {
-				v4		pos_clip;
-				v2		uv;
-			};
-			const Data_Vertex_Layout layout = { (int)sizeof(Vertex_2d), {
-				{ "pos_clip",			FV4,	(int)offsetof(Vertex_2d, pos_clip) },
-				{ "uv",					FV2,	(int)offsetof(Vertex_2d, uv) },
-			}};
-			
-			auto shad = use_shader("shaders/fullscreen_quad");
-			assert(shad);
-
-			static Vertex_2d fullscreen_quad[] = {
-				{ v4(+1,-1, 0,1), v2(1,0) },
-				{ v4(+1,+1, 0,1), v2(1,1) },
-				{ v4(-1,-1, 0,1), v2(0,0) },
-				{ v4(-1,-1, 0,1), v2(0,0) },
-				{ v4(+1,+1, 0,1), v2(1,1) },
-				{ v4(-1,+1, 0,1), v2(0,1) },
-			};
-			static VBO vbo = stream_vertex_data(fullscreen_quad, sizeof(fullscreen_quad));
-			use_vertex_data(*shad, layout, vbo);
-
-			bind_texture(shad, "tex", 0, framebuffer->tex);
-			draw_triangles(*shad, 0, 6);
-		}
-
-		prev_framebuffer = &framebuffer->tex;
-
-		framebuffer = &doublebuffer_framebuffers[ (framebuffer -&doublebuffer_framebuffers[0]) ^ 1 ];
-
 		#if 0
-		auto s = use_shader("skybox_cubemap_gen");
-
-		auto render_cubemap = [&] () {
+		static auto skybox = alloc_cube_texture(iv2(128), PF_LRGBF);
+		{
+			static auto fbo = draw_to_texture(skybox, iv2(128));
+			auto s = use_shader("skybox_cubemap_gen");
+		
 			struct Vertex {
-				v2		pos_screen;
-				v3		dir_cubemap;
+				v3		pos_world;
 			};
 			const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
-				{ "pos_screen",		FV2,	(int)offsetof(Vertex, pos_screen) },
-				{ "dir_cubemap",	FV3,	(int)offsetof(Vertex, dir_cubemap) },
+				{ "pos_world",		FV3,	(int)offsetof(Vertex, pos_world) },
 			}};
 
-			static TextureCube skybox = alloc_texture_cube(iv2(256,256), PF_LRGBF16, NO_MIPMAPS);
-			static auto fbo = draw_to_texture(&skybox);
+			static auto cube = generate_cube(1, [] (v3 p) { return Vertex{p}; });
+			static auto vbo = stream_vertex_data(cube.data(), (int)cube.size() * layout.vertex_size);
 
-			static std::vector<Vertex> faces = {
-				// face 1
-				{ v2(-1,-1), v3(+1,+1,+1) },
-				{ v2(+1,-1), v3(+1,+1,+1) },
-				{ v2(+1,+1), v3(+1,+1,+1) },
-				{ v2(+1,+1), v3(+1,+1,+1) },
-				{ v2(-1,-1), v3(+1,+1,+1) },
-				{ v2(-1,+1), v3(+1,+1,+1) },
-				// ...
-			};
+			bind_vertex_data(vbo, layout, *s);
 
+			for (auto i=fbo.draw_begin(); i<fbo.draw_end(); ++i) {
+				fbo.bind(i);
+
+				draw_triangles(*s, cube);
+			}
 
 		}
 		#endif
+
+		static Texture2D* prev_framebuffer = nullptr;
+		Texture2D* framebuffer;
+		{ // draw into scene into framebuffer, and use that framebuffer on the next frame as a texture in the scene
+			
+			struct Framebuffer {
+				Texture2D	tex;
+				iv2			size = -1;
+				FBO			fbo;
+			};
+			static Framebuffer doublebuffer_framebuffers[2];
+			static Framebuffer* _framebuffer = &doublebuffer_framebuffers[0];
+
+			static FBO fbo;
+
+			if (any(inp.wnd_size_px != _framebuffer->size)) {
+				_framebuffer->size = inp.wnd_size_px;
+				_framebuffer->tex = alloc_texture(_framebuffer->size, { PF_LRGBF, NO_MIPMAPS });
+				_framebuffer->fbo = draw_to_texture(_framebuffer->tex, _framebuffer->size);
+			}
+
+			_framebuffer->fbo.bind();
+			
+			
+			lrgb clear_color_lrgb = srgb8(30).to_lrgb();
+
+
+			glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+			glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+
+			glDisable(GL_BLEND);
+			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glEnable(GL_DEPTH_TEST);
+			glEnable(GL_CULL_FACE);
+			glDisable(GL_SCISSOR_TEST);
+
+			glClearColor(clear_color_lrgb.x,clear_color_lrgb.y,clear_color_lrgb.z,255);
+			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+		
+			std::vector<Default_Vertex_3d> quad;
+
+			for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
+				Default_Vertex_3d v;
+				v.pos_model = v3(p -0.5f, +0.5f);
+				v.uv = p;
+				v.col_lrgba = srgba8(230).to_lrgb();
+				quad.push_back(v);
+			}
+
+			for (int face=0; face<6; ++face) {
+				
+				auto s = use_shader(shad_default_3d);
+				if (s) {
+					m3 model_to_world;
+				
+					if (		face == 0 ) {
+						model_to_world = m3::ident();
+					} else if (	face == 1 ) {
+						model_to_world = rotate3_Z(deg(180)) * rotate3_X(deg(180));
+					} else if (	face == 2 ) {
+						model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(90));
+					} else if (	face == 3 ) {
+						model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(-90));
+					} else if (	face == 4 ) {
+						model_to_world = rotate3_Y(deg(180)) * rotate3_X(deg(-90));
+					} else if (	face == 5 ) {
+						model_to_world = rotate3_X(deg(90));
+					}
+										
+					set_uniform(s, "model_to_world", m4(model_to_world));
+					
+					int tex_select = face / 2;
+
+					Texture2D tmp;
+
+					if (		tex_select == 0 ) {
+						srgba8 pixels[16][16];
+						for (int y=0; y<16; ++y) {
+							for (int x=0; x<16; ++x) {
+								pixels[y][x] = BOOL_XOR(BOOL_XOR(x % 2, y % 2), mymod((flt)glfwGetTime(), 1.0f) < 0.5f) ? srgba8(220,150,150,255) : srgba8(255);
+							}
+						}
+				
+						tmp = upload_texture(pixels, iv2(16,16), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST });
+						bind_texture(s, "tex", 0, tmp);
+					} else if ( tex_select == 1 ) {
+						bind_texture(s, "tex", 0, *get_texture("dab.png", { PF_SRGBA8, NO_MIPMAPS }));
+					} else if ( tex_select == 2 ) {
+						
+						if (prev_framebuffer)
+							bind_texture(s, "tex", 0, *prev_framebuffer);
+						else
+							bind_texture(s, "tex", 0, upload_texture(&black, iv2(1,1), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST }));
+					}
+
+					draw_stream_triangles(*s, quad);
+				}
+			}
+
+			framebuffer = &_framebuffer->tex;
+			prev_framebuffer = framebuffer;
+
+			_framebuffer = &doublebuffer_framebuffers[ (_framebuffer -&doublebuffer_framebuffers[0]) ^ 1 ];
+		}
+
+		{ // draw framebuffer as fullscreen quad
+			draw_to_screen();
+
+			glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+			glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+
+			glDisable(GL_BLEND);
+			glDisable(GL_DEPTH_TEST);
+			glDisable(GL_CULL_FACE);
+			glDisable(GL_SCISSOR_TEST);
+		
+			{//draw_fullscreen_quad();
+			
+				struct Vertex_2d {
+					v4		pos_clip;
+					v2		uv;
+				};
+				const Data_Vertex_Layout layout = { (int)sizeof(Vertex_2d), {
+					{ "pos_clip",			FV4,	(int)offsetof(Vertex_2d, pos_clip) },
+					{ "uv",					FV2,	(int)offsetof(Vertex_2d, uv) },
+				}};
+			
+				auto shad = use_shader("shaders/fullscreen_quad");
+				assert(shad);
+
+				static Vertex_2d fullscreen_quad[] = {
+					{ v4(+1,-1, 0,1), v2(1,0) },
+					{ v4(+1,+1, 0,1), v2(1,1) },
+					{ v4(-1,-1, 0,1), v2(0,0) },
+					{ v4(-1,-1, 0,1), v2(0,0) },
+					{ v4(+1,+1, 0,1), v2(1,1) },
+					{ v4(-1,+1, 0,1), v2(0,1) },
+				};
+				static VBO vbo = stream_vertex_data(fullscreen_quad, sizeof(fullscreen_quad));
+				use_vertex_data(*shad, layout, vbo);
+
+				bind_texture(shad, "tex", 0, *framebuffer);
+				draw_triangles(*shad, 0, 6);
+			}
+		}
 
 		end_imgui(inp.wnd_size_px);
 

@@ -110,7 +110,7 @@ namespace engine {
 
 				//flip_vertical_inplace(pixels, size.x * sizeof(pixel), size.y);
 
-				imgui_atlas = upload_texture(pixels,size, PF_SRGBA8, NO_MIPMAPS, FILTER_BILINEAR, FILTER_NO_ANISO);
+				imgui_atlas = upload_texture(pixels,size, { PF_SRGBA8, NO_MIPMAPS, FILTER_LINEAR });
 
 				io.Fonts->TexID = (void*)&imgui_atlas;
 			}
