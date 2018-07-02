@@ -5,13 +5,20 @@ using namespace engine;
 std::string shad_default_2d =			"shaders/default_2d";
 std::string shad_default_3d =			"shaders/default_3d";
 
-NOINLINE hm calc_cam_to_world (v3 cam_pos_world, v3 cam_altazimuth) {
+hm calc_cam_to_world (v3 cam_pos_world, v3 cam_altazimuth) {
 	quat rot = rotateQ_Z(cam_altazimuth.x) * rotateQ_X(cam_altazimuth.y) * rotateQ_Z(cam_altazimuth.z);
 	return translateH(cam_pos_world) * hm(convert_to_m3(rot));
 }
-NOINLINE hm calc_world_to_cam (v3 cam_pos_world, v3 cam_altazimuth) {
-	quat rot = rotateQ_Z(-cam_altazimuth.z) * rotateQ_X(-cam_altazimuth.y) * rotateQ_Z(-cam_altazimuth.x); // rotate world around camera
-	return hm(convert_to_m3(rot)) * translateH(-cam_pos_world);
+hm calc_world_to_cam (v3 cam_pos_world, v3 cam_altazimuth) {
+	static bool quat_for_rotation = true;
+	ImGui::Checkbox("quat_for_rotation", &quat_for_rotation);
+	if (quat_for_rotation) {
+		quat rot = rotateQ_Z(-cam_altazimuth.z) * rotateQ_X(-cam_altazimuth.y) * rotateQ_Z(-cam_altazimuth.x); // rotate world around camera
+		return hm(convert_to_m3(rot)) * translateH(-cam_pos_world);
+	} else {
+		m3 rot = rotate3_Z(-cam_altazimuth.z) * rotate3_X(-cam_altazimuth.y) * rotate3_Z(-cam_altazimuth.x); // rotate world around camera
+		return hm(rot) * translateH(-cam_pos_world);
+	}
 }
 m4 calc_perspective_matrix (flt vfov, flt clip_near, flt clip_far, v2 screen_size) {
 
@@ -146,8 +153,8 @@ int main () {
 		glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
 		glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
 
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDisable(GL_BLEND);
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
 		glDisable(GL_SCISSOR_TEST);
@@ -161,56 +168,59 @@ int main () {
 
 		for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
 			Default_Vertex_3d v;
-			v.pos_model = v3(p -0.5f, 0);
+			v.pos_model = v3(p -0.5f, +0.5f);
 			v.uv = p;
+			v.col_lrgba = srgba8(230).to_lrgb();
 			quad.push_back(v);
 		}
 
-		static int base_cycle = 0;
-		if (inp.buttons['C'].went_down)
-			base_cycle++;
-
-		base_cycle %= 4;
-
-		for (int y=0; y<2; ++y) {
-			for (int x=0; x<2; ++x) {
+		for (int face=0; face<6; ++face) {
 				
-				auto s = use_shader(shad_default_3d);
-				if (s) {
-					set_uniform(s, "model_to_world", translate4(v3((v2)iv2(y,x) * 1.2f, 0)));
-					
-					int cycle = base_cycle +y * 2 +x;
-
-					cycle %= 4;
-
-					Texture2D tmp;
-
-					if (		cycle == 0 ) {
-						srgba8 pixels[16][16];
-						for (int y=0; y<16; ++y) {
-							for (int x=0; x<16; ++x) {
-								pixels[y][x] = BOOL_XOR(BOOL_XOR(x % 2, y % 2), mymod((flt)glfwGetTime(), 1.0f) < 0.5f) ? srgba8(220,150,150,255) : srgba8(255);
-							}
-						}
+			auto s = use_shader(shad_default_3d);
+			if (s) {
+				m3 model_to_world;
 				
-						tmp = upload_texture(pixels, iv2(16,16), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST);
-						bind_texture(s, "tex", 0, tmp);
-					} else if ( cycle == 1 ) {
-						bind_texture(s, "tex", 0, *get_texture("dab.png", PF_SRGBA8, NO_MIPMAPS));
-					} else if ( cycle == 2 ) {
-						static Texture2D white_tex = upload_texture(&white, iv2(1,1), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST);
-			
-						bind_texture(s, "tex", 0, white_tex);
-					} else if ( cycle == 3 ) {
-						
-						if (prev_framebuffer)
-							bind_texture(s, "tex", 0, *prev_framebuffer);
-						else
-							bind_texture(s, "tex", 0, upload_texture(&black, iv2(1,1), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST));
-					}
-
-					draw_stream_triangles(*s, quad);
+				if (		face == 0 ) {
+					model_to_world = m3::ident();
+				} else if (	face == 1 ) {
+					model_to_world = rotate3_Z(deg(180)) * rotate3_X(deg(180));
+				} else if (	face == 2 ) {
+					model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(90));
+				} else if (	face == 3 ) {
+					model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(-90));
+				} else if (	face == 4 ) {
+					model_to_world = rotate3_Y(deg(180)) * rotate3_X(deg(-90));
+				} else if (	face == 5 ) {
+					model_to_world = rotate3_X(deg(90));
 				}
+										
+				set_uniform(s, "model_to_world", m4(model_to_world));
+					
+				int tex_select = face / 2;
+
+				Texture2D tmp;
+
+				if (		tex_select == 0 ) {
+					srgba8 pixels[16][16];
+					for (int y=0; y<16; ++y) {
+						for (int x=0; x<16; ++x) {
+							pixels[y][x] = BOOL_XOR(BOOL_XOR(x % 2, y % 2), mymod((flt)glfwGetTime(), 1.0f) < 0.5f) ? srgba8(220,150,150,255) : srgba8(255);
+						}
+					}
+				
+					tmp = upload_texture(pixels, iv2(16,16), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST);
+					bind_texture(s, "tex", 0, tmp);
+				} else if ( tex_select == 1 ) {
+					bind_texture(s, "tex", 0, *get_texture("dab.png", PF_SRGBA8, NO_MIPMAPS));
+				} else if ( tex_select == 2 ) {
+						
+					if (prev_framebuffer)
+						bind_texture(s, "tex", 0, *prev_framebuffer);
+					else
+						bind_texture(s, "tex", 0, upload_texture(&black, iv2(1,1), PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST));
+				}
+
+				draw_stream_triangles(*s, quad);
 			}
 		}
 

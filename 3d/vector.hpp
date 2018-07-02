@@ -191,17 +191,17 @@ INL M3 convert_to_m3 (QUAT q) {
 	T wy = q.w * q.y;
 	T wz = q.w * q.z;
 
-	ret.arr[0] = V3(	1 -(2 * (yy +zz)),
-						    2 * (xy +wz),
-						    2 * (xz -wy) );
+	ret.arr[0] = V3(	1 -(2 * (yy +zz)),		// y z 
+						    2 * (xy +wz),	// yx zw
+						    2 * (xz -wy) ); // zx yw
 
-	ret.arr[1] = V3(	    2 * (xy -wz),
-						1 -(2 * (xx +zz)),
-						    2 * (yz +wx) );
+	ret.arr[1] = V3(	    2 * (xy -wz),	// xy zw
+						1 -(2 * (xx +zz)),		// x z
+						    2 * (yz +wx) ); // zy xw
 
-	ret.arr[2] = V3(	    2 * (xy +wy),
-						    2 * (yz -wx),
-						1 -(2 * (xx +yy)) );
+	ret.arr[2] = V3(	    2 * (xz +wy),	// xz yw
+						    2 * (yz -wx),	// yz xw
+						1 -(2 * (xx +yy)) );	// x y
 
 	return ret;
 }
