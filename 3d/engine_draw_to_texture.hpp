@@ -60,6 +60,9 @@ void swap (FBO& l, FBO& r) {
 FBO draw_to_texture (Texture2D const& color_target, iv2 size_px) {
 	return FBO::create(color_target, size_px);
 }
+FBO_Cube draw_to_texture (TextureCube const& color_target, iv2 size_px) {
+	return FBO::create(color_target, size_px);
+}
 
 void draw_to_screen () {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);

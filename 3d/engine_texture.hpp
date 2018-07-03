@@ -285,6 +285,12 @@ Texture2D alloc_texture (iv2 size_px, Texture::Options o) {
 	return tex;
 }
 
+Texture2D alloc_cube_texture (iv2 size_px, Texture::Options o) {
+	auto tex = Texture2D::generate(GL_TEXTURE_CUBE_MAP, o);
+	tex.alloc(GL_TEXTURE_CUBE_MAP, size_px, o);
+	return tex;
+}
+
 Texture2D upload_texture_from_file (std::string const& filepath, Texture::Options o) {
 	iv2 size;
 	int channels;

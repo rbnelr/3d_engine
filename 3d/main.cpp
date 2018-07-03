@@ -20,9 +20,7 @@ hm calc_world_to_cam (v3 cam_pos_world, v3 cam_altazimuth) {
 		return hm(rot) * translateH(-cam_pos_world);
 	}
 }
-m4 calc_perspective_matrix (flt vfov, flt clip_near, flt clip_far, v2 screen_size) {
-
-	f32 aspect_w_over_h = screen_size.x / screen_size.y;
+m4 calc_perspective_matrix (flt vfov, flt clip_near, flt clip_far, flt aspect_w_over_h) {
 
 	v2 frustrum_scale = tan(vfov * 0.5f);
 	frustrum_scale.x *= aspect_w_over_h;
@@ -122,35 +120,55 @@ int main () {
 		cam.control(inp, dt);
 
 		hm	world_to_cam = calc_world_to_cam(cam.pos_world, cam.altazimuth);
-		m4	cam_to_clip = calc_perspective_matrix(cam.vfov, cam.clip_near, cam.clip_far, (v2)inp.wnd_size_px);
+		m4	cam_to_clip = calc_perspective_matrix(cam.vfov, cam.clip_near, cam.clip_far, (flt)inp.wnd_size_px.x / (flt)inp.wnd_size_px.y);
 		
 		set_shared_uniform("_3d_view", "world_to_cam", world_to_cam.m4());
 		set_shared_uniform("_3d_view", "cam_to_clip", cam_to_clip);
 		
-		#if 0
-		static auto skybox = alloc_cube_texture(iv2(128), PF_LRGBF);
+		#if 1
+		static auto skybox = alloc_cube_texture(iv2(128), { PF_LRGBF, NO_MIPMAPS });
 		{
 			static auto fbo = draw_to_texture(skybox, iv2(128));
+
+			glViewport(0,0, 128,128);
+
+			glDisable(GL_BLEND);
+			glDisable(GL_DEPTH_TEST);
+			glDisable(GL_CULL_FACE);
+			glDisable(GL_SCISSOR_TEST);
+			
 			auto s = use_shader("skybox_cubemap_gen");
-		
+			
 			struct Vertex {
 				v3		pos_world;
 			};
 			const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
 				{ "pos_world",		FV3,	(int)offsetof(Vertex, pos_world) },
 			}};
-
+		
 			static auto cube = generate_cube(1, [] (v3 p) { return Vertex{p}; });
 			static auto vbo = stream_vertex_data(cube.data(), (int)cube.size() * layout.vertex_size);
-
+		
 			bind_vertex_data(vbo, layout, *s);
 
-			for (auto i=fbo.draw_begin(); i<fbo.draw_end(); ++i) {
-				fbo.bind(i);
+			static m4 world_to_cubemap = m4::ident(); // can rotate cubemap here
+			set_uniform(s, "world_to_cubemap", world_to_cubemap);
+			
+			static m4 faces_cubemap_to_cam[6] = {
+				
+			};
+
+			static m4 cam_to_clip = calc_perspective_matrix(90, 1.0f/16, 1024, 1);
+			set_uniform(s, "cam_to_clip", cam_to_clip);
+
+			for (auto face=0; face<6; ++face) {
+				fbo.bind(face);
+
+				set_uniform(s, "cubemap_to_cam", faces_cubemap_to_cam[face]);
 
 				draw_triangles(*s, cube);
 			}
-
+		
 		}
 		#endif
 
