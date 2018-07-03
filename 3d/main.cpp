@@ -254,7 +254,7 @@ int main () {
 				auto s = use_shader("shaders/fullscreen_quad");
 				assert(s);
 
-				static VBO vbo = stream_vertex_data(cerberus->vbo_data.data(), cerberus->vbo_data.size() * sizeof(Default_Vertex_3d));
+				static VBO vbo = stream_vertex_data(cerberus->vbo_data.data(), (int)cerberus->vbo_data.size() * (int)sizeof(Default_Vertex_3d));
 				use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
 
 				set_uniform(s, "model_to_world", m4::ident());
