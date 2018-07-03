@@ -1,6 +1,7 @@
 #version 330 core // version 3.3
 
 in		vec2	vs_uv;
+in		vec3	vs_normal_cam;
 in		vec4	vs_col;
 
 out		vec4	frag_col;
@@ -23,6 +24,7 @@ float wireframe_edge_factor () {
 void main () {
 	frag_col = texture(tex, vs_uv) * vs_col;
 	//if (frag_col.a == 0) discard;
+	//frag_col = vec4(normalize(vs_normal_cam), 1);
 
 	if (wireframe_enable) {
 		float ef = wireframe_edge_factor();

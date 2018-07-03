@@ -85,6 +85,23 @@ struct Camera {
 	}
 };
 
+template <typename VERTEX> void quad (flt r, VERTEX vert) {
+	vert(v2(+r,-r));
+	vert(v2(+r,+r));
+	vert(v2(-r,-r));
+	vert(v2(-r,-r));
+	vert(v2(+r,+r));
+	vert(v2(-r,+r));
+}
+template <typename VERTEX> void generate_cube (flt r, VERTEX vert) {
+	quad(r, [&] (v2 p) {	vert(												v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_Z(deg(180)) *	rotate3_X(deg(180)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_X(deg(90)) *	rotate3_Y(deg(90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_X(deg(90)) *	rotate3_Y(deg(-90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_Y(deg(180)) *	rotate3_X(deg(-90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(						rotate3_X(deg(90)) *	v3(p,r)); });
+}
+
 int main () {
 	
 	Window wnd;
@@ -94,6 +111,7 @@ int main () {
 	f32 dt = dt_measure.begin();
 
 	glEnable(GL_FRAMEBUFFER_SRGB);
+	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 	for (;;) {
 		
@@ -119,46 +137,62 @@ int main () {
 
 		cam.control(inp, dt);
 
+		ImGui::DragFloat3("cam.pos_world", &cam.pos_world.x, 1.0f / 100);
+		ImGui::SliderAngle("cam.vfov", &cam.vfov, 0,180);
+
 		hm	world_to_cam = calc_world_to_cam(cam.pos_world, cam.altazimuth);
 		m4	cam_to_clip = calc_perspective_matrix(cam.vfov, cam.clip_near, cam.clip_far, (flt)inp.wnd_size_px.x / (flt)inp.wnd_size_px.y);
 		
 		set_shared_uniform("_3d_view", "world_to_cam", world_to_cam.m4());
 		set_shared_uniform("_3d_view", "cam_to_clip", cam_to_clip);
 		
-		#if 1
-		static auto skybox = alloc_cube_texture(iv2(128), { PF_LRGBF, NO_MIPMAPS });
-		{
-			static auto fbo = draw_to_texture(skybox, iv2(128));
+		// create a skybox via shader
+		iv2 cubemap_res = 128;
 
-			glViewport(0,0, 128,128);
+		static auto skybox = alloc_cube_texture(cubemap_res, { PF_LRGBF, NO_MIPMAPS });
+		{
+			static auto fbo = draw_to_texture(skybox, cubemap_res);
+
+			glViewport(0,0, cubemap_res.x,cubemap_res.y);
 
 			glDisable(GL_BLEND);
 			glDisable(GL_DEPTH_TEST);
 			glDisable(GL_CULL_FACE);
 			glDisable(GL_SCISSOR_TEST);
 			
-			auto s = use_shader("skybox_cubemap_gen");
-			
+			auto s = use_shader("shaders/skybox_cubemap_gen");
+			assert(s);
+
+
 			struct Vertex {
 				v3		pos_world;
 			};
 			const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
 				{ "pos_world",		FV3,	(int)offsetof(Vertex, pos_world) },
 			}};
-		
-			static auto cube = generate_cube(1, [] (v3 p) { return Vertex{p}; });
+
+			static std::vector<Vertex> cube;
+			if (cube.size() == 0)
+				generate_cube(1, [] (v3 p) { cube.push_back({p}); });
+
 			static auto vbo = stream_vertex_data(cube.data(), (int)cube.size() * layout.vertex_size);
 		
 			bind_vertex_data(vbo, layout, *s);
 
 			static m4 world_to_cubemap = m4::ident(); // can rotate cubemap here
 			set_uniform(s, "world_to_cubemap", world_to_cubemap);
-			
-			static m4 faces_cubemap_to_cam[6] = {
 				
+			// TODO: fix this, so that the cubemap appears the right way around in the debugger
+			static m4 faces_cubemap_to_cam[6] = {
+				rotate4_Z(deg(180)) *	rotate4_Y(deg( 90)),	// pos x
+				rotate4_Z(deg(180)) *	rotate4_Y(deg(-90)),	// neg x
+										rotate4_X(deg(-90)),	// pos y
+										rotate4_X(deg( 90)),	// neg y
+										rotate4_X(deg(180)),	// pos z
+				rotate4_Z(deg(180)),							// neg z
 			};
 
-			static m4 cam_to_clip = calc_perspective_matrix(90, 1.0f/16, 1024, 1);
+			m4 cam_to_clip = calc_perspective_matrix(deg(90), 1.0f/16, 1024, 1);
 			set_uniform(s, "cam_to_clip", cam_to_clip);
 
 			for (auto face=0; face<6; ++face) {
@@ -166,15 +200,119 @@ int main () {
 
 				set_uniform(s, "cubemap_to_cam", faces_cubemap_to_cam[face]);
 
-				draw_triangles(*s, cube);
+				draw_triangles(*s, 0, (int)cube.size());
 			}
 		
 		}
-		#endif
 
-		static Texture2D* prev_framebuffer = nullptr;
+		auto draw_scene = [&] (Texture2D* prev_framebuffer) {
+			
+			lrgb clear_color_lrgb = srgb8(30).to_lrgb();
+
+			glClearColor(clear_color_lrgb.x,clear_color_lrgb.y,clear_color_lrgb.z,255);
+			//glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+			glClear(GL_DEPTH_BUFFER_BIT);
+
+			glDisable(GL_DEPTH_TEST);
+			glDepthMask(GL_FALSE);
+
+			{
+				auto s = use_shader("shaders/skybox");
+				assert(s);
+				
+				struct Vertex {
+					v3		pos_model; // just a cube
+				};
+				const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
+					{ "pos_model",		FV3,	(int)offsetof(Vertex, pos_model) },
+				}};
+
+				static std::vector<Vertex> cube;
+				if (cube.size() == 0)
+					generate_cube(1, [] (v3 p) { cube.push_back({p}); });
+
+				static auto vbo = stream_vertex_data(cube.data(), (int)cube.size() * layout.vertex_size);
+
+				bind_vertex_data(vbo, layout, *s);
+
+				bind_texture(s, "skybox", 0, skybox);
+
+				draw_triangles(*s, 0, (int)cube.size());
+			}
+
+			glDisable(GL_BLEND);
+			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glEnable(GL_DEPTH_TEST);
+			glDepthMask(GL_TRUE);
+			glEnable(GL_CULL_FACE);
+			glDisable(GL_SCISSOR_TEST);
+
+			std::vector<Default_Vertex_3d> quad;
+
+			for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
+				Default_Vertex_3d v;
+				v.pos_model = v3(p -0.5f, +0.5f);
+				v.uv = p;
+				v.normal_model = v3(0,0,1);
+				v.col_lrgba = srgba8(230).to_lrgb();
+				quad.push_back(v);
+			}
+
+			for (int face=0; face<6; ++face) {
+
+				auto s = use_shader(shad_default_3d);
+				if (s) {
+					m3 model_to_world;
+
+					if (		face == 0 ) {
+						model_to_world = m3::ident();
+					} else if (	face == 1 ) {
+						model_to_world = rotate3_Z(deg(180)) * rotate3_X(deg(180));
+					} else if (	face == 2 ) {
+						model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(90));
+					} else if (	face == 3 ) {
+						model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(-90));
+					} else if (	face == 4 ) {
+						model_to_world = rotate3_Y(deg(180)) * rotate3_X(deg(-90));
+					} else if (	face == 5 ) {
+						model_to_world = rotate3_X(deg(90));
+					}
+
+					set_uniform(s, "model_to_world", m4(model_to_world));
+
+					int tex_select = face / 2;
+
+					Texture2D tmp;
+
+					if (		tex_select == 0 ) {
+						srgba8 pixels[16][16];
+						for (int y=0; y<16; ++y) {
+							for (int x=0; x<16; ++x) {
+								pixels[y][x] = BOOL_XOR(BOOL_XOR(x % 2, y % 2), mymod((flt)glfwGetTime(), 1.0f) < 0.5f) ? srgba8(220,150,150,255) : srgba8(255);
+							}
+						}
+
+						tmp = upload_texture(pixels, iv2(16,16), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST });
+						bind_texture(s, "tex", 0, tmp);
+					} else if ( tex_select == 1 ) {
+						bind_texture(s, "tex", 0, *get_texture("dab.png", { PF_SRGBA8, NO_MIPMAPS }));
+					} else if ( tex_select == 2 ) {
+
+						if (prev_framebuffer)
+							bind_texture(s, "tex", 0, *prev_framebuffer);
+						else
+							bind_texture(s, "tex", 0, upload_texture(&black, iv2(1,1), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST }));
+					}
+
+					draw_stream_triangles(*s, quad);
+				}
+			}
+
+		};
+
 		Texture2D* framebuffer;
 		{ // draw into scene into framebuffer, and use that framebuffer on the next frame as a texture in the scene
+			static Texture2D* prev_framebuffer = nullptr;
 			
 			struct Framebuffer {
 				Texture2D	tex;
@@ -194,81 +332,10 @@ int main () {
 
 			_framebuffer->fbo.bind();
 			
-			
-			lrgb clear_color_lrgb = srgb8(30).to_lrgb();
-
-
 			glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
 			glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
 
-			glDisable(GL_BLEND);
-			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glEnable(GL_DEPTH_TEST);
-			glEnable(GL_CULL_FACE);
-			glDisable(GL_SCISSOR_TEST);
-
-			glClearColor(clear_color_lrgb.x,clear_color_lrgb.y,clear_color_lrgb.z,255);
-			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-		
-			std::vector<Default_Vertex_3d> quad;
-
-			for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
-				Default_Vertex_3d v;
-				v.pos_model = v3(p -0.5f, +0.5f);
-				v.uv = p;
-				v.col_lrgba = srgba8(230).to_lrgb();
-				quad.push_back(v);
-			}
-
-			for (int face=0; face<6; ++face) {
-				
-				auto s = use_shader(shad_default_3d);
-				if (s) {
-					m3 model_to_world;
-				
-					if (		face == 0 ) {
-						model_to_world = m3::ident();
-					} else if (	face == 1 ) {
-						model_to_world = rotate3_Z(deg(180)) * rotate3_X(deg(180));
-					} else if (	face == 2 ) {
-						model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(90));
-					} else if (	face == 3 ) {
-						model_to_world = rotate3_X(deg(90)) * rotate3_Y(deg(-90));
-					} else if (	face == 4 ) {
-						model_to_world = rotate3_Y(deg(180)) * rotate3_X(deg(-90));
-					} else if (	face == 5 ) {
-						model_to_world = rotate3_X(deg(90));
-					}
-										
-					set_uniform(s, "model_to_world", m4(model_to_world));
-					
-					int tex_select = face / 2;
-
-					Texture2D tmp;
-
-					if (		tex_select == 0 ) {
-						srgba8 pixels[16][16];
-						for (int y=0; y<16; ++y) {
-							for (int x=0; x<16; ++x) {
-								pixels[y][x] = BOOL_XOR(BOOL_XOR(x % 2, y % 2), mymod((flt)glfwGetTime(), 1.0f) < 0.5f) ? srgba8(220,150,150,255) : srgba8(255);
-							}
-						}
-				
-						tmp = upload_texture(pixels, iv2(16,16), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST });
-						bind_texture(s, "tex", 0, tmp);
-					} else if ( tex_select == 1 ) {
-						bind_texture(s, "tex", 0, *get_texture("dab.png", { PF_SRGBA8, NO_MIPMAPS }));
-					} else if ( tex_select == 2 ) {
-						
-						if (prev_framebuffer)
-							bind_texture(s, "tex", 0, *prev_framebuffer);
-						else
-							bind_texture(s, "tex", 0, upload_texture(&black, iv2(1,1), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST }));
-					}
-
-					draw_stream_triangles(*s, quad);
-				}
-			}
+			draw_scene(prev_framebuffer);
 
 			framebuffer = &_framebuffer->tex;
 			prev_framebuffer = framebuffer;

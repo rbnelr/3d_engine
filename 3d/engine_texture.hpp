@@ -70,19 +70,18 @@ public:
 		}
 	};
 
-	static Texture generate (GLenum target, Options const& o) {
-		Texture tex;
-		glGenTextures(1, &tex.handle);
+	void generate (GLenum target, Options const& o) {
+		assert(handle == 0);
+		
+		glGenTextures(1, &handle);
 
-		glBindTexture(target, tex.handle);
+		glBindTexture(target, handle);
 		glBindTexture(target, 0);
 
-		tex.set_minmag_filtering(target, o.minmag_filter, o.mipmap_mode);
-		tex.set_border(target, o.border_mode, o.border_color);
+		set_minmag_filtering(target, o.minmag_filter, o.mipmap_mode);
+		set_border(target, o.border_mode, o.border_color);
 
-		tex.set_active_mips(target, 0,0);
-
-		return tex;
+		set_active_mips(target, 0,0);
 	}
 
 private:
@@ -133,6 +132,8 @@ private:
 
 		glTexParameteri(target, GL_TEXTURE_WRAP_S, mode);
 		glTexParameteri(target, GL_TEXTURE_WRAP_T, mode);
+		if (target == GL_TEXTURE_CUBE_MAP)
+			glTexParameteri(target, GL_TEXTURE_WRAP_R, mode);
 
 		if (bm == BORDER_COLOR)
 			glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, &bc.x); // according to https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt, the texture border is not converted from srgb to linear even for srgb textures (ie. is treated as linear in a linear pipeline), i could not find other info on this
@@ -272,21 +273,38 @@ void swap (Texture& l, Texture& r) {
 	std::swap(l.handle, r.handle);
 }
 
-typedef Texture Texture2D;
+class Texture2D : public Texture {
+	using Texture::generate;
+public:
+	static Texture2D generate (Texture::Options o) {
+		Texture2D tex;
+		tex.generate(GL_TEXTURE_2D, o);
+		return tex;
+	}
+};
+class TextureCube : public Texture {
+	using Texture::generate;
+public:
+	static TextureCube generate (Texture::Options o) {
+		TextureCube tex;
+		tex.generate(GL_TEXTURE_CUBE_MAP, o);
+		return tex;
+	}
+};
 
 Texture2D upload_texture (void const* pixels, iv2 size_px, Texture::Options o) {
-	auto tex = Texture2D::generate(GL_TEXTURE_2D, o);
+	auto tex = Texture2D::generate(o);
 	tex.reupload(GL_TEXTURE_2D, pixels, size_px, o);
 	return tex;
 }
 Texture2D alloc_texture (iv2 size_px, Texture::Options o) {
-	auto tex = Texture2D::generate(GL_TEXTURE_2D, o);
+	auto tex = Texture2D::generate(o);
 	tex.alloc(GL_TEXTURE_2D, size_px, o);
 	return tex;
 }
 
-Texture2D alloc_cube_texture (iv2 size_px, Texture::Options o) {
-	auto tex = Texture2D::generate(GL_TEXTURE_CUBE_MAP, o);
+TextureCube alloc_cube_texture (iv2 size_px, Texture::Options o) {
+	auto tex = TextureCube::generate(o);
 	tex.alloc(GL_TEXTURE_CUBE_MAP, size_px, o);
 	return tex;
 }

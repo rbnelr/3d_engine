@@ -33,19 +33,22 @@
     <None Include="shaders\fullscreen_quad.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\skybox_cubemap_gen.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\skybox_cubemap_gen.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\skybox.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\skybox.vert">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="deps\dear_imgui\imgui.cpp">
-      <Filter>deps</Filter>
-    </ClCompile>
-    <ClCompile Include="deps\dear_imgui\imgui_demo.cpp">
-      <Filter>deps</Filter>
-    </ClCompile>
-    <ClCompile Include="deps\dear_imgui\imgui_draw.cpp">
-      <Filter>deps</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -123,6 +126,15 @@
     </ClInclude>
     <ClInclude Include="engine_draw_to_texture.hpp">
       <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="deps\dear_imgui\imgui_draw.cpp">
+      <Filter>deps</Filter>
+    </ClInclude>
+    <ClInclude Include="deps\dear_imgui\imgui_demo.cpp">
+      <Filter>deps</Filter>
+    </ClInclude>
+    <ClInclude Include="deps\dear_imgui\imgui.cpp">
+      <Filter>deps</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

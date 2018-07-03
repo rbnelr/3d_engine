@@ -199,7 +199,7 @@ template <typename T> void draw_stream_triangles (std::string const& shader, std
 		draw_stream_triangles(*shad, vertex_data, first_vertex, vertex_count);
 }
 
-void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, Texture2D const& tex) {
+void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, Texture const& tex) {
 	assert(_current_used_shader == shad);
 
 	auto loc = glGetUniformLocation(shad->get_prog_handle(), uniform_name.c_str());
