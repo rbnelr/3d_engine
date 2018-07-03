@@ -10,15 +10,8 @@ hm calc_cam_to_world (v3 cam_pos_world, v3 cam_altazimuth) {
 	return translateH(cam_pos_world) * hm(convert_to_m3(rot));
 }
 hm calc_world_to_cam (v3 cam_pos_world, v3 cam_altazimuth) {
-	static bool quat_for_rotation = true;
-	ImGui::Checkbox("quat_for_rotation", &quat_for_rotation);
-	if (quat_for_rotation) {
-		quat rot = rotateQ_Z(-cam_altazimuth.z) * rotateQ_X(-cam_altazimuth.y) * rotateQ_Z(-cam_altazimuth.x); // rotate world around camera
-		return hm(convert_to_m3(rot)) * translateH(-cam_pos_world);
-	} else {
-		m3 rot = rotate3_Z(-cam_altazimuth.z) * rotate3_X(-cam_altazimuth.y) * rotate3_Z(-cam_altazimuth.x); // rotate world around camera
-		return hm(rot) * translateH(-cam_pos_world);
-	}
+	quat rot = rotateQ_Z(-cam_altazimuth.z) * rotateQ_X(-cam_altazimuth.y) * rotateQ_Z(-cam_altazimuth.x); // rotate world around camera
+	return hm(convert_to_m3(rot)) * translateH(-cam_pos_world);
 }
 m4 calc_perspective_matrix (flt vfov, flt clip_near, flt clip_far, flt aspect_w_over_h) {
 
@@ -125,6 +118,9 @@ int main () {
 		set_shared_uniform("common", "screen_size", (v2)inp.wnd_size_px);
 		set_shared_uniform("common", "mcursor_pos", inp.mouse_cursor_pos_screen_buttom_up_pixel_center());
 
+		set_shared_uniform("common", "cubemap_gl_ori_to_z_up", rotate3_X(deg(90)));
+		set_shared_uniform("common", "cubemap_z_up_to_gl_ori", rotate3_X(deg(-90)));
+
 		static bool draw_wireframe = false;
 		ImGui::Checkbox("draw_wireframe", &draw_wireframe);
 		if (inp.buttons['P'].went_down)
@@ -141,6 +137,8 @@ int main () {
 		ImGui::SliderAngle("cam.vfov", &cam.vfov, 0,180);
 
 		hm	world_to_cam = calc_world_to_cam(cam.pos_world, cam.altazimuth);
+		hm	cam_to_world = calc_cam_to_world(cam.pos_world, cam.altazimuth);
+
 		m4	cam_to_clip = calc_perspective_matrix(cam.vfov, cam.clip_near, cam.clip_far, (flt)inp.wnd_size_px.x / (flt)inp.wnd_size_px.y);
 		
 		set_shared_uniform("_3d_view", "world_to_cam", world_to_cam.m4());
@@ -149,9 +147,15 @@ int main () {
 		// create a skybox via shader
 		iv2 cubemap_res = 128;
 
-		static auto skybox = alloc_cube_texture(cubemap_res, { PF_LRGBF, NO_MIPMAPS });
-		{
-			static auto fbo = draw_to_texture(skybox, cubemap_res);
+		TextureCube* skybox;
+		if (0) {
+			skybox = get_multifile_cubemap("assets/ely_nevada/nevada_%s.tga", {"rt","lf","dn","up","bk","ft"}, { PF_SRGB8, USE_MIPMAPS });
+			//skybox = get_multifile_cubemap("assets/SkyboxSet1/CloudyLightRays/CloudyLightRays%s2048.png", {"Right","Left","Down","Up","Back","Front"}, { PF_SRGB8, USE_MIPMAPS });
+		} else {
+			static auto _skybox = alloc_cube_texture(cubemap_res, { PF_LRGBF, NO_MIPMAPS });
+			skybox = &_skybox;
+
+			static auto fbo = draw_to_texture(_skybox, cubemap_res);
 
 			glViewport(0,0, cubemap_res.x,cubemap_res.y);
 
@@ -235,7 +239,7 @@ int main () {
 
 				bind_vertex_data(vbo, layout, *s);
 
-				bind_texture(s, "skybox", 0, skybox);
+				bind_texture(s, "skybox", 0, *skybox);
 
 				draw_triangles(*s, 0, (int)cube.size());
 			}
@@ -250,17 +254,38 @@ int main () {
 
 			{
 				auto cerberus = mesh_manager.get_mesh("assets/Cerberus_by_Andrew_Maximov/Cerberus_LP.FBX");
-
-				auto s = use_shader("shaders/fullscreen_quad");
+				
+				auto s = use_shader(shad_default_3d);
 				assert(s);
 
 				static VBO vbo = stream_vertex_data(cerberus->vbo_data.data(), (int)cerberus->vbo_data.size() * (int)sizeof(Default_Vertex_3d));
 				use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
 
-				set_uniform(s, "model_to_world", m4::ident());
+				set_uniform(s, "model_to_world", translate4(v3(+5,0,0)) * scale4(1.0f / 50));
+
+				set_uniform(s, "cam_to_world", cam_to_world.m4());
+
+				bind_texture(s, "skybox", 0, *skybox);
 
 				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
+			}
 
+			if (0) {
+				auto mesh = mesh_manager.get_mesh("assets/terrain.fbx");
+
+				auto s = use_shader(shad_default_3d);
+				assert(s);
+
+				static VBO vbo = stream_vertex_data(mesh->vbo_data.data(), (int)mesh->vbo_data.size() * (int)sizeof(Default_Vertex_3d));
+				use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
+
+				set_uniform(s, "model_to_world", translate4(v3(0,0,0)) * scale4(500));
+
+				set_uniform(s, "cam_to_world", cam_to_world.m4());
+
+				bind_texture(s, "skybox", 0, *skybox);
+
+				draw_triangles(*s, 0, (int)mesh->vbo_data.size());
 			}
 
 			std::vector<Default_Vertex_3d> quad;
@@ -268,8 +293,9 @@ int main () {
 			for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
 				Default_Vertex_3d v;
 				v.pos_model = v3(p -0.5f, +0.5f);
-				v.uv = p;
 				v.normal_model = v3(0,0,1);
+				v.tangent_model = v4(1,0,0,1);
+				v.uv = p;
 				v.col_lrgba = srgba8(230).to_lrgb();
 				quad.push_back(v);
 			}

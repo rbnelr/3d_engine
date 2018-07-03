@@ -26,28 +26,63 @@ bool load_mesh (std::string const& filepath, Mesh* mesh) {
 		return false;
 
 	assert(scene->mNumMeshes == 1);
-	auto m = *scene->mMeshes[0];
-
+	auto& m = *scene->mMeshes[0];
+	
 	assert(m.mPrimitiveTypes == aiPrimitiveType_TRIANGLE);
 	assert(m.mNumFaces > 0);
 	assert(m.mNumVertices > 0);
-
+	
 	for (uint i=0; i<m.mNumFaces; ++i) {
 		auto& f = m.mFaces[i];
-
+	
 		assert(f.mNumIndices == 3);
-
+	
 		for (int i=0; i<3; ++i) {
 			
 			auto indx = f.mIndices[i];
-
 			assert(indx >= 0 && indx < m.mNumVertices);
-			auto& pos = m.mVertices[indx];
-
+			
 			Default_Vertex_3d v;
 
-			v.pos_model = v3( pos.x, pos.y, pos.z );
+			assert(m.HasPositions());
+			{
+				auto& p = m.mVertices[indx];
+				v.pos_model = v3(p.x,p.y,p.z);
+			}
 
+			if (m.HasNormals()) {
+				auto& n = m.mNormals[indx];
+				v.normal_model = v3(n.x,n.y,n.z);
+			}
+
+			if (m.HasTangentsAndBitangents()) {
+				auto& t_ = m.mTangents[indx];
+				auto& b_ = m.mBitangents[indx];
+
+				v3 tangent = v3(t_.x,t_.y,t_.z);
+				v3 bitangent = v3(b_.x,b_.y,b_.z);
+
+				v3 expected_normal = cross(tangent, bitangent);
+				v3 actual_normal = v.normal_model;
+				
+				flt bitangent_sign = dot(expected_normal, actual_normal);
+				assert(bitangent_sign != 0);
+
+				bitangent_sign = normalize(bitangent_sign);
+
+				v.tangent_model = v4(tangent, bitangent_sign);
+			}
+
+			if (m.HasTextureCoords(0)) {
+				auto& uv = *m.mTextureCoords[0];
+				v.uv = v2(uv.x,uv.y);
+			}
+
+			if (m.HasVertexColors(0)) { // not tested
+				auto& c = *m.mColors[0];
+				v.col_lrgba = v4( to_linear(v3(c.r,c.g,c.b)), c.a );
+			}
+			
 			mesh->vbo_data.push_back(v);
 		}
 	}

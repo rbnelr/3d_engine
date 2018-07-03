@@ -4,12 +4,13 @@ in		vec3	vs_dir_world;
 
 out		vec4	frag_col;
 
-
+uniform	mat3	common_cubemap_z_up_to_gl_ori;
 
 void main () {
 	//frag_col = vec4(normalize(vs_dir_world), 1);
 	
-	float z = normalize(vs_dir_world).z;
+	///*
+	float z = normalize(common_cubemap_z_up_to_gl_ori * vs_dir_world).z;
 	
 	vec3 horiz_col = vec3(100,130,90) / 255;
 	vec3 sky_col = vec3(70,90,250) / 255;
@@ -22,4 +23,5 @@ void main () {
 		col = mix(horiz_col, ground_col, pow(-z, 1.0 / 2));
 
 	frag_col = vec4(col, 1);
+	//*/
 }

@@ -13,11 +13,11 @@ namespace texture_n {
 //
 
 enum pixel_format_e {
-	// linear
+	PF_SRGB8,
+	PF_SRGBA8, // alpha is always linear in opengl
+	
 	PF_LR8,
 	PF_LRGBA8,
-	PF_SRGB8, // alpha is always linear in opengl
-	PF_SRGBA8, // alpha is always linear in opengl
 
 	PF_LRF,
 	PF_LRGBF,
@@ -147,14 +147,6 @@ private:
 		glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, last);
 	}
 
-	void generate_mipmaps (GLenum target) {
-		//glBindTexture(target, handle);
-
-		//glGenerateMipmap(target);
-
-		assert(false);
-	}
-
 	template <typename FOREACH> int mipmap_chain (iv2 initial_size, FOREACH f) {
 		int mip_i = 0;
 		iv2 sz = initial_size;
@@ -171,16 +163,23 @@ private:
 	}
 public:
 	
+	void generate_mipmaps (GLenum target) {
+		glBindTexture(target, handle);
+
+		glGenerateMipmap(target);
+	}
+
 	struct GL_Format {
 		GLenum internal_format;
 		GLenum cpu_format;
 		GLenum type;
 	} _format (pixel_format_e pf) {
 		switch (pf) {
-			case PF_LR8:	return { GL_R8,				GL_RED,		GL_UNSIGNED_BYTE };
-			case PF_LRGBA8:	return { GL_RGBA8,			GL_RGBA,	GL_UNSIGNED_BYTE };
 			case PF_SRGB8:	return { GL_SRGB8,			GL_RGB,		GL_UNSIGNED_BYTE };
 			case PF_SRGBA8:	return { GL_SRGB8_ALPHA8,	GL_RGBA,	GL_UNSIGNED_BYTE };
+			
+			case PF_LR8:	return { GL_R8,				GL_RED,		GL_UNSIGNED_BYTE };
+			case PF_LRGBA8:	return { GL_RGBA8,			GL_RGBA,	GL_UNSIGNED_BYTE };
 			
 			case PF_LRF:	return { GL_R32F,			GL_RED,		GL_FLOAT };		
 			case PF_LRGBF:	return { GL_RGB32F,			GL_RGB,		GL_FLOAT };		
@@ -309,16 +308,17 @@ TextureCube alloc_cube_texture (iv2 size_px, Texture::Options o) {
 	return tex;
 }
 
-Texture2D upload_texture_from_file (std::string const& filepath, Texture::Options o) {
-	iv2 size;
+u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2* size_px) {
 	int channels;
 	int got_channels;
 
 	switch (o.pixel_format) {
+		case PF_SRGB8:	channels = 3;	break;
+		case PF_SRGBA8:	channels = 4;	break;
+
 		case PF_LR8:	channels = 1;	break;
 		case PF_LRGBA8:	channels = 4;	break;
-		case PF_SRGBA8:	channels = 4;	break;
-		
+
 		case PF_LRF:	channels = 1;	break;
 		case PF_LRGBF:	channels = 3;	break;
 		case PF_LRGBAF:	channels = 4;	break;
@@ -327,22 +327,74 @@ Texture2D upload_texture_from_file (std::string const& filepath, Texture::Option
 
 	stbi_set_flip_vertically_on_load(true);
 
-	auto* pixels = stbi_load(filepath.c_str(), &size.x,&size.y, &got_channels, channels);
+	auto* pixels = stbi_load(filepath.c_str(), &size_px->x,&size_px->y, &got_channels, channels);
 	if (!pixels) {
 		fprintf(stderr, "Texture \"%s\" could not be loaded!\n", filepath.c_str());
-		return Texture2D(); // return error code ?
+		return nullptr;
 	}
 
-	return upload_texture(pixels, size, o);
+	return pixels;
+}
+
+Texture2D upload_texture_from_file (std::string const& filepath, Texture::Options o) {
+	
+	iv2 size_px;
+	auto* pixels = get_image2d_file_pixel(filepath, o, &size_px);
+	if (!pixels) {
+		return Texture2D();
+	}
+
+	auto tex = upload_texture(pixels, size_px, o);
+
+	free(pixels);
+
+	return tex;
+}
+
+TextureCube upload_cube_texture_from_multifile (std::string const& name_format, std::vector<std::string> const& face_names, Texture::Options o) {
+	
+	auto tex = TextureCube::generate(o);
+
+	iv2 prev_size_px = -1;
+	
+	for (int face=0; face<6; ++face) {
+		iv2 size_px;
+		auto* pixels = get_image2d_file_pixel(prints(name_format.c_str(), face_names[face].c_str()), o, &size_px);
+		if (!pixels || !(prev_size_px.x < 0 || all(prev_size_px == size_px))) {
+			return TextureCube();
+		}
+
+		prev_size_px = size_px;
+
+		tex.reupload_mipmap_cube_face(pixels, size_px, face, 0, o);
+
+		free(pixels);
+	}
+
+	if (o.mipmap_mode == USE_MIPMAPS) {
+		tex.generate_mipmaps(GL_TEXTURE_CUBE_MAP);
+	}
+
+	return tex;
 }
 
 struct Texture_Manager {
 	std::unordered_map<std::string, Texture2D> textures;
+	std::unordered_map<std::string, TextureCube> textures_cube;
 	
 	Texture2D* get_texture (std::string const& name, Texture::Options o) {
 		auto shad = textures.find(name);
 		if (shad == textures.end())
 			shad = textures.emplace(name, upload_texture_from_file(name, o)).first;
+
+		//assert(shad->second.o == o);
+		return &shad->second;
+	}
+	
+	TextureCube* get_multifile_cubemap (std::string const& name_format, std::vector<std::string> const& face_names, Texture::Options o) {
+		auto shad = textures_cube.find(name_format);
+		if (shad == textures_cube.end())
+			shad = textures_cube.emplace(name_format, upload_cube_texture_from_multifile(name_format, face_names, o)).first;
 
 		//assert(shad->second.o == o);
 		return &shad->second;
@@ -353,6 +405,10 @@ Texture_Manager texture_manager;
 
 Texture2D* get_texture (std::string const& name, Texture::Options o) {
 	return texture_manager.get_texture(name, o);
+}
+
+TextureCube* get_multifile_cubemap (std::string const& name_format, std::vector<std::string> const& face_names, Texture::Options o) {
+	return texture_manager.get_multifile_cubemap(name_format, face_names, o);
 }
 
 //

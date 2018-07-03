@@ -194,7 +194,7 @@ template <typename T> void draw_stream_triangles (std::string const& shader, std
 		draw_stream_triangles(*shad, vertex_data, first_vertex, vertex_count);
 }
 
-void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, Texture const& tex) {
+void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, Texture const& tex, GLenum target) {
 	assert(_current_used_shader == shad);
 
 	auto loc = glGetUniformLocation(shad->get_prog_handle(), uniform_name.c_str());
@@ -202,8 +202,14 @@ void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, 
 		glUniform1i(loc, tex_unit);
 
 		glActiveTexture(GL_TEXTURE0 +tex_unit);
-		glBindTexture(GL_TEXTURE_2D, tex.get_handle());
+		glBindTexture(target, tex.get_handle());
 	}
+}
+void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, Texture2D const& tex) {
+	bind_texture(shad, uniform_name, tex_unit, tex, GL_TEXTURE_2D);
+}
+void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, TextureCube const& tex) {
+	bind_texture(shad, uniform_name, tex_unit, tex, GL_TEXTURE_CUBE_MAP);
 }
 
 //
