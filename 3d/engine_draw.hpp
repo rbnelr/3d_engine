@@ -168,11 +168,6 @@ void bind_vertex_data (VBO const& vbo, Data_Vertex_Layout const& vertex_layout, 
 
 }
 
-VBO stream_vertex_data (void const* vertex_data, int vertex_size) {
-	VBO vbo = mesh_manager.stream_vertex_data(vertex_data, vertex_size);
-	return vbo;
-}
-
 void use_vertex_data (Shader const& shad, Data_Vertex_Layout const& vertex_layout, VBO const& vbo) {
 	bind_vertex_data(vbo, vertex_layout, shad);
 }

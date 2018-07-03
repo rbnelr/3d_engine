@@ -1,7 +1,59 @@
 #pragma once
 
+#include <unordered_map>
+
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
+
 namespace engine {
 //
+
+struct Mesh {
+	std::vector<Default_Vertex_3d>	vbo_data;
+	//std::vector<u16>				ebo_data;
+};
+
+bool load_mesh (std::string const& filepath, Mesh* mesh) {
+	Assimp::Importer importer;
+
+	auto* scene = importer.ReadFile(filepath,
+		aiProcess_CalcTangentSpace       | 
+		aiProcess_Triangulate            |
+		aiProcess_JoinIdenticalVertices  |
+		aiProcess_SortByPType );
+	if (!scene)
+		return false;
+
+	assert(scene->mNumMeshes == 1);
+	auto m = *scene->mMeshes[0];
+
+	assert(m.mPrimitiveTypes == aiPrimitiveType_TRIANGLE);
+	assert(m.mNumFaces > 0);
+	assert(m.mNumVertices > 0);
+
+	for (uint i=0; i<m.mNumFaces; ++i) {
+		auto& f = m.mFaces[i];
+
+		assert(f.mNumIndices == 3);
+
+		for (int i=0; i<3; ++i) {
+			
+			auto indx = f.mIndices[i];
+
+			assert(indx >= 0 && indx < m.mNumVertices);
+			auto& pos = m.mVertices[indx];
+
+			Default_Vertex_3d v;
+
+			v.pos_model = v3( pos.x, pos.y, pos.z );
+
+			mesh->vbo_data.push_back(v);
+		}
+	}
+
+	return true;
+}
 
 class VBO {
 	MOVE_ONLY_CLASS(VBO)
@@ -77,10 +129,23 @@ inline void swap (EBO& l, EBO& r) {
 
 struct Mesh_Manager {
 	
-	VBO stream_vertex_data (void const* vertex_data, int vertex_size) {
-		return VBO::gen_and_upload(vertex_data, vertex_size);
+	std::unordered_map<std::string, Mesh> meshes;
+
+	Mesh* get_mesh (std::string const& name) {
+		auto shad = meshes.find(name);
+		if (shad == meshes.end()) {
+			Mesh m;
+			if (!load_mesh(name, &m))
+				return nullptr;
+			shad = meshes.emplace(name, std::move(m)).first;
+		}
+		return &shad->second;
 	}
 };
+
+VBO stream_vertex_data (void const* vertex_data, int vertex_size) {
+	return VBO::gen_and_upload(vertex_data, vertex_size);
+}
 
 Mesh_Manager mesh_manager;
 

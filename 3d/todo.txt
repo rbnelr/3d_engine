@@ -1,2 +1,6 @@
 
+impove drawing abstraction
+ -need to see what common patterns are
 
+use real 3d meshes
+ -need mesh loader (what format? fbx?)

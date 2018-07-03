@@ -6,6 +6,9 @@
 # do not ignore generated header libs
 !3d/deps/glad/
 
+# ignore huge assets
+3d/assets/*
+
 # probably dont need pdb of c runtime
 vc*.pdb
 

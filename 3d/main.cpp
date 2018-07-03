@@ -247,6 +247,22 @@ int main () {
 			glEnable(GL_CULL_FACE);
 			glDisable(GL_SCISSOR_TEST);
 
+
+			{
+				auto cerberus = mesh_manager.get_mesh("assets/Cerberus_by_Andrew_Maximov/Cerberus_LP.FBX");
+
+				auto s = use_shader("shaders/fullscreen_quad");
+				assert(s);
+
+				static VBO vbo = stream_vertex_data(cerberus->vbo_data.data(), cerberus->vbo_data.size() * sizeof(Default_Vertex_3d));
+				use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
+
+				set_uniform(s, "model_to_world", m4::ident());
+
+				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
+
+			}
+
 			std::vector<Default_Vertex_3d> quad;
 
 			for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
