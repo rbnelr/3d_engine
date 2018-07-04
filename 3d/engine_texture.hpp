@@ -8,6 +8,8 @@
 
 #include "deps/stb/stb_image.h"
 
+#include "image_processing.hpp"
+
 namespace engine {
 namespace texture_n {
 //
@@ -17,6 +19,7 @@ enum pixel_format_e {
 	PF_SRGBA8, // alpha is always linear in opengl
 	
 	PF_LR8,
+	PF_LRGB8,
 	PF_LRGBA8,
 
 	PF_LRF,
@@ -32,7 +35,8 @@ enum minmag_filter_e {
 	FILTER_LINEAR,
 };
 enum border_mode_e {
-	BORDER_CLAMP=0,
+	BORDER_REPEAT=0,
+	BORDER_CLAMP,
 	BORDER_COLOR,
 };
 
@@ -58,7 +62,7 @@ public:
 		border_mode_e	border_mode		;//: 1;
 		lrgba			border_color;
 
-		constexpr Options (pixel_format_e pf, mipmap_mode_e mm=USE_MIPMAPS, minmag_filter_e mf=FILTER_LINEAR, border_mode_e bm=BORDER_CLAMP, lrgba bc=lrgba(0,0,0,1)):
+		constexpr Options (pixel_format_e pf, mipmap_mode_e mm=USE_MIPMAPS, minmag_filter_e mf=FILTER_LINEAR, border_mode_e bm=BORDER_REPEAT, lrgba bc=lrgba(0,0,0,1)):
 			pixel_format{pf}, mipmap_mode{mm}, minmag_filter{mf}, border_mode{bm}, border_color{bc} {}
 
 		bool operator== (Options r) {
@@ -125,7 +129,8 @@ private:
 		GLenum mode;
 		
 		switch (bm) {
-			case BORDER_CLAMP:	mode = GL_CLAMP_TO_EDGE; break;
+			case BORDER_REPEAT:	mode = GL_REPEAT;			break;
+			case BORDER_CLAMP:	mode = GL_CLAMP_TO_EDGE;	break;
 			case BORDER_COLOR:	mode = GL_CLAMP_TO_BORDER;
 			default: assert(not_implemented);
 		}
@@ -179,6 +184,7 @@ public:
 			case PF_SRGBA8:	return { GL_SRGB8_ALPHA8,	GL_RGBA,	GL_UNSIGNED_BYTE };
 			
 			case PF_LR8:	return { GL_R8,				GL_RED,		GL_UNSIGNED_BYTE };
+			case PF_LRGB8:	return { GL_RGB8,			GL_RGB,		GL_UNSIGNED_BYTE };
 			case PF_LRGBA8:	return { GL_RGBA8,			GL_RGBA,	GL_UNSIGNED_BYTE };
 			
 			case PF_LRF:	return { GL_R32F,			GL_RED,		GL_FLOAT };		
@@ -296,6 +302,7 @@ Texture2D upload_texture (void const* pixels, iv2 size_px, Texture::Options o) {
 	tex.reupload(GL_TEXTURE_2D, pixels, size_px, o);
 	return tex;
 }
+
 Texture2D alloc_texture (iv2 size_px, Texture::Options o) {
 	auto tex = Texture2D::generate(o);
 	tex.alloc(GL_TEXTURE_2D, size_px, o);
@@ -308,7 +315,7 @@ TextureCube alloc_cube_texture (iv2 size_px, Texture::Options o) {
 	return tex;
 }
 
-u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2* size_px) {
+u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2* size_px, int* sizeof_pixel=nullptr) {
 	int channels;
 	int got_channels;
 
@@ -317,11 +324,12 @@ u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2
 		case PF_SRGBA8:	channels = 4;	break;
 
 		case PF_LR8:	channels = 1;	break;
+		case PF_LRGB8:	channels = 3;	break;
 		case PF_LRGBA8:	channels = 4;	break;
 
-		case PF_LRF:	channels = 1;	break;
-		case PF_LRGBF:	channels = 3;	break;
-		case PF_LRGBAF:	channels = 4;	break;
+		case PF_LRF:	
+		case PF_LRGBF:	
+		case PF_LRGBAF:	
 		default: assert(not_implemented);
 	}
 
@@ -333,6 +341,7 @@ u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2
 		return nullptr;
 	}
 
+	if (sizeof_pixel) *sizeof_pixel = channels * sizeof(u8);
 	return pixels;
 }
 
@@ -351,20 +360,49 @@ Texture2D upload_texture_from_file (std::string const& filepath, Texture::Option
 	return tex;
 }
 
-TextureCube upload_cube_texture_from_multifile (std::string const& name_format, std::vector<std::string> const& face_names, Texture::Options o) {
+enum _90_deg_rotation {
+	ROT_0=0,
+	ROT_90,
+	ROT_180,
+	ROT_270,
+};
+
+TextureCube upload_cube_texture_from_multifile (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
 	
 	auto tex = TextureCube::generate(o);
 
+	int sizeof_pixel;
 	iv2 prev_size_px = -1;
 	
 	for (int face=0; face<6; ++face) {
 		iv2 size_px;
-		auto* pixels = get_image2d_file_pixel(prints(name_format.c_str(), face_names[face].c_str()), o, &size_px);
+		auto* pixels = get_image2d_file_pixel(prints(name_format.c_str(), face_names[face].c_str()), o, &size_px, &sizeof_pixel);
 		if (!pixels || !(prev_size_px.x < 0 || all(prev_size_px == size_px))) {
 			return TextureCube();
 		}
 
 		prev_size_px = size_px;
+
+		switch (rotation[face]) {
+			case ROT_0:		break;
+			case ROT_180:	inplace_rotate_180(pixels, sizeof_pixel, size_px);	break;
+
+			case ROT_90:	
+			case ROT_270: {
+				u8* unrotated_img = pixels;
+				pixels = (u8*)malloc(size_px.y * size_px.x * sizeof_pixel);
+
+				if (rotation[face] == ROT_90) {
+					copy_rotate_90(unrotated_img, pixels, sizeof_pixel, size_px);
+				} else {
+					//copy_rotate_270(unrotated_img, pixels, sizeof_pixel, size_px);
+				}
+
+				free(unrotated_img);
+			} break;
+
+			default: assert(not_implemented);
+		}
 
 		tex.reupload_mipmap_cube_face(pixels, size_px, face, 0, o);
 
@@ -383,21 +421,31 @@ struct Texture_Manager {
 	std::unordered_map<std::string, TextureCube> textures_cube;
 	
 	Texture2D* get_texture (std::string const& name, Texture::Options o) {
-		auto shad = textures.find(name);
-		if (shad == textures.end())
-			shad = textures.emplace(name, upload_texture_from_file(name, o)).first;
+		auto tex = textures.find(name);
+		if (tex == textures.end())
+			tex = textures.emplace(name, upload_texture_from_file(name, o)).first;
 
 		//assert(shad->second.o == o);
-		return &shad->second;
+		return &tex->second;
 	}
 	
-	TextureCube* get_multifile_cubemap (std::string const& name_format, std::vector<std::string> const& face_names, Texture::Options o) {
-		auto shad = textures_cube.find(name_format);
-		if (shad == textures_cube.end())
-			shad = textures_cube.emplace(name_format, upload_cube_texture_from_multifile(name_format, face_names, o)).first;
+	TextureCube* get_multifile_cubemap (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
+		auto tex = textures_cube.find(name_format);
+		if (tex == textures_cube.end())
+			tex = textures_cube.emplace(name_format, upload_cube_texture_from_multifile(name_format, o, face_names, rotation)).first;
 
 		//assert(shad->second.o == o);
-		return &shad->second;
+		return &tex->second;
+	}
+
+	bool evict_cubemap (std::string const& name) {
+		auto shad = textures_cube.find(name);
+		if (shad == textures_cube.end()) {
+			return false;
+		}
+		
+		textures_cube.erase(shad);
+		return true;
 	}
 };
 
@@ -407,9 +455,31 @@ Texture2D* get_texture (std::string const& name, Texture::Options o) {
 	return texture_manager.get_texture(name, o);
 }
 
-TextureCube* get_multifile_cubemap (std::string const& name_format, std::vector<std::string> const& face_names, Texture::Options o) {
-	return texture_manager.get_multifile_cubemap(name_format, face_names, o);
+TextureCube* get_multifile_cubemap (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
+	return texture_manager.get_multifile_cubemap(name_format, o, face_names, rotation);
 }
+bool evict_cubemap (std::string const& name) {
+	return texture_manager.evict_cubemap(name);
+}
+
+
+Texture2D upload_texture (lrgba color) {
+	Texture::Options o = { PF_LRGBAF, NO_MIPMAPS, FILTER_NEAREST, BORDER_CLAMP };
+	auto tex = Texture2D::generate(o);
+	tex.reupload(GL_TEXTURE_2D, &color, 1, o);
+	return tex;
+}
+Texture2D upload_texture (srgba8 color) {
+	Texture::Options o = { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST, BORDER_CLAMP };
+	auto tex = Texture2D::generate(o);
+	tex.reupload(GL_TEXTURE_2D, &color, 1, o);
+	return tex;
+}
+
+Texture2D* tex_black () {			static Texture2D tex = upload_texture(lrgba(0,0,0,1));			return &tex; }
+Texture2D* tex_grey () {			static Texture2D tex = upload_texture(lrgba(0.5f,0.5f,0.5f,1));	return &tex; }
+Texture2D* tex_white () {			static Texture2D tex = upload_texture(lrgba(1));				return &tex; }
+Texture2D* tex_identity_normal () {	static Texture2D tex = upload_texture(lrgba(0.5f,0.5f,1,1));	return &tex; }
 
 //
 }

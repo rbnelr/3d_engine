@@ -62,10 +62,10 @@ bool load_mesh (std::string const& filepath, Mesh* mesh) {
 				v3 tangent = v3(t_.x,t_.y,t_.z);
 				v3 bitangent = v3(b_.x,b_.y,b_.z);
 
-				v3 expected_normal = cross(tangent, bitangent);
-				v3 actual_normal = v.normal_model;
+				v3 expected_bitangent = cross(v.normal_model, tangent);
+				v3 actual_bitangent = bitangent;
 				
-				flt bitangent_sign = dot(expected_normal, actual_normal);
+				flt bitangent_sign = -dot(expected_bitangent, actual_bitangent); // TODO: why is this negative ?
 				assert(bitangent_sign != 0);
 
 				bitangent_sign = normalize(bitangent_sign);
@@ -74,7 +74,7 @@ bool load_mesh (std::string const& filepath, Mesh* mesh) {
 			}
 
 			if (m.HasTextureCoords(0)) {
-				auto& uv = *m.mTextureCoords[0];
+				auto& uv = m.mTextureCoords[0][indx];
 				v.uv = v2(uv.x,uv.y);
 			}
 

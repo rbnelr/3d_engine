@@ -44,8 +44,8 @@ const Data_Vertex_Layout Default_Vertex_2d::layout = { (int)sizeof(Default_Verte
 
 struct Default_Vertex_3d {
 	v3		pos_model;
-	v3		normal_model	= v3( 0, 0,+1);
-	v4		tangent_model	= v4( 0,+1, 0,+1);
+	v3		normal_model	= v3(0, 0,+1);
+	v4		tangent_model	= v4(0,+1, 0,+1);
 	v2		uv				= 0.5f;
 	lrgba	col_lrgba		= white.to_lrgb();
 
