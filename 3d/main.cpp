@@ -227,6 +227,20 @@ int main () {
 			rotate3_Z(deg(-20)) * rotate3_X(deg( 19)) * v3(0,1,0),
 		};
 
+		static struct {
+			srgb8	col;
+			flt		intensity;
+		} skyboxes_sun_col[] = {
+			{ srgb8(0), 0 },
+			{ srgb8(255,234,226), 6.00f },
+			{ srgb8(248,233,232), 0.31f },
+			{ srgb8(216,207,207), 0.14f },
+			{ srgb8(255,255,255), 0.37f },
+			{ srgb8(243,157, 80), 1.71f },
+			{ srgb8(248,191,152), 2.20f },
+			{ srgb8(255,248,236), 6.00f },
+		};
+
 		static flt rotate_skybox = 0;
 		ImGui::SliderAngle("rotate_skybox", &rotate_skybox, -180, +180);
 		
@@ -236,7 +250,10 @@ int main () {
 		set_shared_uniform("common", "world_to_skybox", world_to_skybox);
 
 		v3 dir_to_sun_world = skybox_to_world * skyboxes_dir_to_sun[selected_skybox];
+		lrgb skybox_light_radiance = skyboxes_sun_col[selected_skybox].col.to_lrgb() * skyboxes_sun_col[selected_skybox].intensity;
+
 		set_shared_uniform("common", "skybox_light_dir_world", dir_to_sun_world);
+		set_shared_uniform("common", "skybox_light_radiance", skybox_light_radiance);
 
 		static flt ambient_light = 0.1f;
 		ImGui::SliderFloat("ambient_light", &ambient_light, 0,1);

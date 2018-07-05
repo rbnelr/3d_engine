@@ -15,6 +15,7 @@ uniform mat3	common_cubemap_gl_ori_to_z_up;
 uniform	mat3	common_world_to_skybox;
 
 uniform vec3	common_skybox_light_dir_world;
+uniform	vec3	common_skybox_light_radiance;
 
 uniform vec3	common_ambient_light;
 
@@ -137,7 +138,7 @@ vec3 lighting_dir_light (vec3 albedo, float metallic, float roughness, vec3 frag
 	float denominator = 4.0 * NV * NL;
 	vec3 specular     = numerator / max(denominator, 0.001);  
 
-	vec3 lighting = (k_diffuse * albedo / PI + specular) * NL;
+	vec3 lighting = (k_diffuse * albedo / PI + specular) * common_skybox_light_radiance * NL;
 
 	return lighting;
 }
