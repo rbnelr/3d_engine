@@ -110,12 +110,7 @@ float geometry_smith (float NV, float NL, float roughness) {
     return ggx1 * ggx2;
 }
 
-
-vec3 lighting_ambient (vec3 albedo, vec3 ambient_light) { // all in cam space
-	return albedo * ambient_light;
-}
-
-vec3 lighting_dir_light (vec3 albedo, float metallic, float roughness, vec3 frag_to_light, vec3 frag_to_cam, vec3 normal) { // all in cam space
+vec3 cook_torrance_specular_BRDF (vec3 albedo, float metallic, float roughness, vec3 frag_to_light, vec3 frag_to_cam, vec3 normal) { // all in cam space
 	vec3 N = normalize(normal);
 	vec3 V = normalize(frag_to_cam);
 	vec3 L = normalize(frag_to_light);
@@ -142,6 +137,9 @@ vec3 lighting_dir_light (vec3 albedo, float metallic, float roughness, vec3 frag
 
 	return lighting;
 }
+vec3 lighting_ambient (vec3 albedo, vec3 ambient_light) { // all in cam space
+	return ambient_light * albedo;
+}
 
 void main () {
 	
@@ -160,8 +158,8 @@ void main () {
 	
 	vec3 normal = normalmapping(normal_sample, vertex_normal, tangent);
 
-	vec3 Lo =  lighting_dir_light(albedo, metallic_sample, roughness_sample, frag_to_light, frag_to_cam, normal)
-					+lighting_ambient(	albedo, common_ambient_light);
+	vec3 Lo =  cook_torrance_specular_BRDF(albedo, metallic_sample, roughness_sample, frag_to_light, frag_to_cam, normal)
+				+lighting_ambient(albedo, common_ambient_light);
 	
 	vec3 color = Lo / (Lo + vec3(1.0)); // Reinhard tonemapping
 
