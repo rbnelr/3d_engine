@@ -134,10 +134,8 @@ namespace engine {
 		ImGui::NewFrame();
 	}
 
-	void end_imgui (iv2 wnd_size_px) {
+	void end_imgui (iv2 wnd_size_px) { // expect viewport to be set
 		ImGui::Render();
-
-		glViewport(0,0, wnd_size_px.x,wnd_size_px.y);
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -152,8 +150,6 @@ namespace engine {
 
 		auto shad = use_shader("shaders/imgui");
 		assert(shad);
-
-		set_uniform(shad, "screen_size", (v2)wnd_size_px);
 
 		struct Imgui_Vertex_2d {
 			v2		pos_screen; // top down coords

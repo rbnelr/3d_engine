@@ -85,7 +85,8 @@ public:
 		set_minmag_filtering(target, o.minmag_filter, o.mipmap_mode);
 		set_border(target, o.border_mode, o.border_color);
 
-		set_active_mips(target, 0,0);
+		if (o.mipmap_mode == NO_MIPMAPS) // NOTE: If i set the active mips to the one we upload (mip 0) (default is 0,1000) then glGenerateMipmap does not work
+			set_active_mips(target, 0,0);
 	}
 
 private:
@@ -126,23 +127,32 @@ private:
 	void set_border (GLenum target, border_mode_e bm, lrgba bc) {
 		glBindTexture(target, handle);
 
-		GLenum mode;
+		if (		target == GL_TEXTURE_2D ) {
+
+			GLenum mode;
 		
-		switch (bm) {
-			case BORDER_REPEAT:	mode = GL_REPEAT;			break;
-			case BORDER_CLAMP:	mode = GL_CLAMP_TO_EDGE;	break;
-			case BORDER_COLOR:	mode = GL_CLAMP_TO_BORDER;
-			default: assert(not_implemented);
+			switch (bm) {
+				case BORDER_REPEAT:	mode = GL_REPEAT;			break;
+				case BORDER_CLAMP:	mode = GL_CLAMP_TO_EDGE;	break;
+				case BORDER_COLOR:	mode = GL_CLAMP_TO_BORDER;
+				default: assert(not_implemented);
+			}
+
+			glTexParameteri(target, GL_TEXTURE_WRAP_S, mode);
+			glTexParameteri(target, GL_TEXTURE_WRAP_T, mode);
+
+			if (bm == BORDER_COLOR)
+				glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, &bc.x); // according to https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt, the texture border is not converted from srgb to linear even for srgb textures (ie. is treated as linear in a linear pipeline), i could not find other info on this
+			
+
+		} else if (	target == GL_TEXTURE_CUBE_MAP ) {
+			// wrapping modes are irrelevant for cubemaps
+
+			glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // redundant state set
+
+		} else {
+			assert(not_implemented);
 		}
-
-		glTexParameteri(target, GL_TEXTURE_WRAP_S, mode);
-		glTexParameteri(target, GL_TEXTURE_WRAP_T, mode);
-		if (target == GL_TEXTURE_CUBE_MAP)
-			glTexParameteri(target, GL_TEXTURE_WRAP_R, mode);
-
-		if (bm == BORDER_COLOR)
-			glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, &bc.x); // according to https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_sRGB.txt, the texture border is not converted from srgb to linear even for srgb textures (ie. is treated as linear in a linear pipeline), i could not find other info on this
-
 	}
 	
 	void set_active_mips (GLenum target, int first, int last) { // i am not sure that just setting abitrary values for these actually works correctly
@@ -171,7 +181,7 @@ public:
 	void generate_mipmaps (GLenum target) {
 		glBindTexture(target, handle);
 
-		glGenerateMipmap(target);
+		glGenerateMipmap(target); // NOTE: If i set the active mips to the one we upload (mip 0) (default is 0,1000) then glGenerateMipmap does not work
 	}
 
 	struct GL_Format {

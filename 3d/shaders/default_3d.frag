@@ -1,12 +1,10 @@
-#version 330 core // version 3.3
+$include "common.frag"
 
 in		vec3	vs_pos_cam;
 in		vec3	vs_normal_cam;
 in		vec4	vs_tangent_cam;
 in		vec2	vs_uv;
 in		vec4	vs_col;
-
-out		vec4	frag_col;
 
 uniform	mat4	_3d_view_world_to_cam;
 uniform	mat4	_3d_view_cam_to_world;
@@ -34,24 +32,6 @@ uniform float		roughness_offs;
 uniform sampler2D	normal_tex;
 
 uniform samplerCube skybox;
-
-// for debugging
-void SHOW (float v) {	frag_col = vec4(v,v,v,1); }
-void SHOW (vec2 v) {	frag_col = vec4(v,0,1); }
-void SHOW (vec3 v) {	frag_col = vec4(v,1); }
-void SHOW (vec4 v) {	frag_col = v; }
-
-uniform bool	wireframe_enable = false;
-
-in		vec3	vs_barycentric;
-
-uniform float	wireframe_width = 1.2;
-
-float wireframe_edge_factor () {
-	vec3 d = fwidth(vs_barycentric);
-	vec3 a3 = smoothstep(vec3(0.0), d * wireframe_width * 2, vs_barycentric);
-	return min(min(a3.x, a3.y), a3.z);
-}
 
 vec3 normalmapping (vec3 normal_map_val, vec3 vertex_normal_cam, vec4 tangent_cam) {
 	vec3 normal_tangent = normal_map_val * 2 -1;
@@ -141,7 +121,7 @@ vec3 lighting_ambient (vec3 albedo, vec3 ambient_light) { // all in cam space
 	return ambient_light * albedo;
 }
 
-void main () {
+vec4 frag () {
 	
 	vec4	 albedo_sample =	(texture(albedo_tex, vs_uv)			* albedo_mult		+ albedo_offs) * vs_col;
 	float	 metallic_sample =	 texture(metallic_tex, vs_uv).r		* metallic_mult		+ metallic_offs;
@@ -163,14 +143,5 @@ void main () {
 	
 	vec3 color = Lo / (Lo + vec3(1.0)); // Reinhard tonemapping
 
-	frag_col = vec4(color, alpha);
-	//frag_col = vec4(metallic_sample,metallic_sample,metallic_sample,1);
-	
-	if (wireframe_enable) {
-		float ef = wireframe_edge_factor();
-
-		if (ef >= 0.5) discard;
-		
-		frag_col = mix(vec4(1,1,0,1), vec4(0,0,0,1), ef * 2);
-	}
+	return vec4(color, alpha);
 }

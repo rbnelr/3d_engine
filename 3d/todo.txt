@@ -1,6 +1,29 @@
 
+DONE:
+use real 3d meshes
+ -need mesh loader (what format? fbx?)
+-> used assimp to load fbx model
+-> textures loaded with my own loading code (no DXT yet)
+-> cubemap loading implemented
+
+implemented simple shader $include statement
+-> double includes are prevented by default
+
+TODO:
+
+implement pbr ibl
+
+implement disk caching of ibl preprocessing
+
+implement texture streaming
+
+shader preprocessor:
+-allow double include with special $command
+-allow defining virtual shader files in source code, so that parts of shaders can be put into source code if desired
+ -> this also allows easy compile-time controlling the shader by having a shader file be defined in source code which #defines macros which then are used to control the shader at shader compile time
+     (as opposed to via uniforms) ex. in release mode wireframe rendering could be complied out this way
+  -> combined with dynamic reloading of the shaders this allows shader-complie-time switching via imgui
+
 impove drawing abstraction
  -need to see what common patterns are
 
-use real 3d meshes
- -need mesh loader (what format? fbx?)

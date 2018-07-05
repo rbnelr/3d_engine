@@ -127,6 +127,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="shaders\common.frag" />
+    <None Include="shaders\common.glsl" />
+    <None Include="shaders\common.vert" />
     <None Include="shaders\default_3d.frag" />
     <None Include="shaders\default_3d.vert" />
     <None Include="shaders\fullscreen_quad.frag" />
@@ -142,7 +145,7 @@
     <ClInclude Include="deps\dear_imgui\imgui.h" />
     <ClInclude Include="engine_draw.hpp" />
     <ClInclude Include="engine_draw_to_texture.hpp" />
-    <ClInclude Include="engine_includes.hpp" />
+    <ClInclude Include="engine.hpp" />
     <ClInclude Include="deps\dear_imgui\imgui.cpp" />
     <ClInclude Include="deps\dear_imgui\imgui_demo.cpp" />
     <ClInclude Include="deps\dear_imgui\imgui_draw.cpp" />
@@ -159,9 +162,9 @@
     <ClInclude Include="compiler_specific.hpp" />
     <ClInclude Include="engine_dear_imgui.hpp" />
     <ClInclude Include="defer.hpp" />
-    <ClInclude Include="engine.hpp" />
     <ClInclude Include="image_processing.hpp" />
     <ClInclude Include="math.hpp" />
+    <ClInclude Include="parse.hpp" />
     <ClInclude Include="preprocessor_stuff.hpp" />
     <ClInclude Include="prints.hpp" />
     <ClInclude Include="simple_file_io.hpp" />

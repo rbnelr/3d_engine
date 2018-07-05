@@ -152,7 +152,6 @@ int main () {
 	f32 dt = dt_measure.begin();
 
 	glEnable(GL_FRAMEBUFFER_SRGB);
-	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 	for (;;) {
 		
@@ -369,7 +368,6 @@ int main () {
 			glEnable(GL_CULL_FACE);
 			glDisable(GL_SCISSOR_TEST);
 
-
 			if (1) {
 				auto cerberus = mesh_manager.get_mesh("assets/Cerberus_by_Andrew_Maximov/Cerberus_LP.FBX");
 				
@@ -482,12 +480,12 @@ int main () {
 
 		};
 
-		if (1) {
-			
-			draw_to_screen();
+		static bool render_to_framebuffer_and_use_as_texture = false;
+		ImGui::Checkbox("render_to_framebuffer_and_use_as_texture", &render_to_framebuffer_and_use_as_texture);
 
-			glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-			glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+		if (!render_to_framebuffer_and_use_as_texture) {
+			
+			draw_to_screen(inp.wnd_size_px);
 
 			draw_scene(nullptr);
 
@@ -512,10 +510,7 @@ int main () {
 					_framebuffer->fbo = draw_to_texture(_framebuffer->tex, _framebuffer->size);
 				}
 
-				_framebuffer->fbo.bind();
-			
-				glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-				glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+				draw_to_texture(_framebuffer->fbo, inp.wnd_size_px);
 
 				draw_scene(prev_framebuffer);
 
@@ -526,10 +521,7 @@ int main () {
 			}
 
 			{ // draw framebuffer as fullscreen quad
-				draw_to_screen();
-
-				glViewport(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
-				glScissor(0,0, inp.wnd_size_px.x,inp.wnd_size_px.y);
+				draw_to_screen(inp.wnd_size_px);
 
 				glDisable(GL_BLEND);
 				glDisable(GL_DEPTH_TEST);
@@ -567,6 +559,7 @@ int main () {
 			}
 		}
 
+		draw_to_screen(inp.wnd_size_px);
 		end_imgui(inp.wnd_size_px);
 
 		wnd.swap_buffers();

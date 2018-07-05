@@ -45,6 +45,15 @@
     <None Include="shaders\skybox.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\common.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\common.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\common.glsl">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -52,9 +61,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="engine.hpp">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="basic_typedefs.hpp">
       <Filter>src_reuseable</Filter>
     </ClInclude>
@@ -109,9 +115,6 @@
     <ClInclude Include="engine_shader_manager.hpp">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="engine_includes.hpp">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="engine_texture.hpp">
       <Filter>src</Filter>
     </ClInclude>
@@ -135,6 +138,12 @@
     </ClInclude>
     <ClInclude Include="deps\dear_imgui\imgui.cpp">
       <Filter>deps</Filter>
+    </ClInclude>
+    <ClInclude Include="engine.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="parse.hpp">
+      <Filter>src_reuseable</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

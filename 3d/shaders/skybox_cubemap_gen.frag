@@ -1,12 +1,10 @@
-#version 330 core // version 3.3
+$include "common.frag"
 
 in		vec3	vs_dir_world;
 
-out		vec4	frag_col;
-
 uniform	mat3	common_cubemap_z_up_to_gl_ori;
 
-void main () {
+vec4 frag () {
 	//frag_col = vec4(normalize(vs_dir_world), 1);
 	
 	///*
@@ -22,6 +20,5 @@ void main () {
 	else
 		col = mix(horiz_col, ground_col, pow(-z, 1.0 / 2));
 
-	frag_col = vec4(col, 1);
-	//*/
+	return vec4(col, 1);
 }

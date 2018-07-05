@@ -4,6 +4,8 @@ namespace engine {
 //
 
 class FBO {
+	friend void draw_to_texture (FBO const& fbo, iv2 texture_size);
+
 	MOVE_ONLY_CLASS(FBO)
 
 	GLuint	handle = 0;
@@ -85,8 +87,22 @@ FBO_Cube draw_to_texture (TextureCube const& color_target, iv2 size_px) {
 	return FBO_Cube::create(color_target, size_px);
 }
 
-void draw_to_screen () {
+void draw_to_screen (iv2 screen_size) {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glViewport(0,0, screen_size.x,screen_size.y);
+	glScissor(0,0, screen_size.x,screen_size.y);
+
+	set_shared_uniform("common", "viewport_size", (v2)screen_size);
+}
+void draw_to_texture (FBO const& fbo, iv2 texture_size) {
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo.handle);
+
+	glViewport(0,0, texture_size.x,texture_size.y);
+	glScissor(0,0, texture_size.x,texture_size.y);
+
+	set_shared_uniform("common", "viewport_size", (v2)texture_size);
 }
 
 //

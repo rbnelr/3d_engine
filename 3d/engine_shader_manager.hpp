@@ -1,12 +1,132 @@
 #pragma once
 
 #include <unordered_map>
+#include <unordered_set>
+
+#include "parse.hpp"
 
 namespace engine {
 //
 namespace shader {
+
+	bool recursive_preprocess_shader (std::string const& filepath, std::string* source, std::unordered_set<std::string>* included_files) {
+		included_files->insert(filepath);
+		
+		auto find_path = [] (std::string const& filepath) { // "shaders/blah.vert" -> "shaders/"  "shaders" -> ""  "blah\\" -> "\\"
+			auto filename_pos = filepath.find_last_of("/\\");
+			return filepath.substr(0, filename_pos +1);
+		};
+		
+		std::string path = find_path(filepath);
+
+		if (!load_text_file(filepath.c_str(), source)) {
+			fprintf(stderr, "Could load shader source! \"%s\"\n", filepath.c_str());
+			return false;
+		}
+
+		using namespace n_parse;
+
+		int		line_number = 0; // in original file, this ignores all replaced lines
+
+		int		cur_line_begin_indx = 0;
+		char*	cur = (char*)&source->c_str()[cur_line_begin_indx];
+
+		auto go_to_next_line = [&] () {
+			while (!end_of_line(&cur))
+				++cur;
+		};
+
+		auto replace_line_with = [&] (std::string lines) { // line should have been completed with end_of_line()
+			auto cur_line_end_indx = cur -(char*)source->c_str();
+
+			source->replace(	cur_line_begin_indx, cur -&source->c_str()[cur_line_begin_indx],
+								lines);
+			cur_line_end_indx += lines.size() -(cur_line_end_indx -cur_line_begin_indx);
+			
+			cur = (char*)&source->c_str()[cur_line_end_indx]; // source->replace invalidates cur
+		};
+		auto comment_out_cur_line = [&] () { // line should have been completed with end_of_line()
+			auto cur_line_end_indx = cur -(char*)source->c_str();
+
+			source->insert(cur_line_begin_indx, "//");
+			cur_line_end_indx += 2;
+
+			cur = (char*)&source->c_str()[cur_line_end_indx]; // source->replace invalidates cur
+		};
+
+		auto include_file = [&] (std::string include_filepath) -> bool { // line should have been completed with end_of_line()
+			
+			include_filepath.insert(0, path);
+
+			if (included_files->find(include_filepath) != included_files->end()) {
+				// file already include, we prevent double include by default
+				replace_line_with("//include \"%s\" (prevented double-include)\n");
+			} else {
+				std::string included_source;
+				if (!recursive_preprocess_shader(include_filepath, &included_source, included_files)) return false;
+
+				replace_line_with(prints(	"//$include \"%s\"\n"
+											"%s\n"
+											"//$include_end file \"%s\" line %d\n",
+											include_filepath.c_str(), included_source.c_str(), filepath.c_str(), line_number));
+			}
+
+			return true;
+		};
+
+		auto dollar_cmd = [&] (char** pcur) {
+			char* cur = *pcur;
+
+			whitespace(&cur);
+
+			if (!character(&cur, '$')) return false;
+
+			whitespace(&cur);
+
+			*pcur = cur;
+			return true;
+		};
+
+		auto include_cmd = [&] () {
+			if (!identifier(&cur, "include")) return false;
+			
+			whitespace(&cur);
+			
+			std::string include_filepath;
+			if (!quoted_string_copy(&cur, &include_filepath)) return false;
+			
+			if (!end_of_line(&cur)) return false;
+			
+			if (!include_file(std::move(include_filepath))) return false;
+			
+			return true;
+		};
+
+		while (!end_of_input(cur)) { // for all lines
+			
+			if ( dollar_cmd(&cur) ) {
+				if (		include_cmd() );
+				//else if (	other command );
+				else {
+					fprintf(stderr, "unknown or invalid $command in shader \"%s\".\n", filepath.c_str());
+					
+					// ignore invalid line
+					go_to_next_line();
+					comment_out_cur_line();
+				}
+			} else {
+				go_to_next_line();
+			}
+
+			cur_line_begin_indx = (int)(cur -(char*)source->c_str()); // set beginning of next line
+			++line_number;
+		}
+
+		return true;
+	}
 	bool preprocess_shader (std::string const& filepath, std::string* source) {
-		return load_text_file(filepath.c_str(), source);
+		std::unordered_set<std::string> included_files;
+		return recursive_preprocess_shader(filepath, source, &included_files);
 	}
 	
 	bool get_shader_compile_log (GLuint shad, std::string* log) {
@@ -62,10 +182,7 @@ namespace shader {
 		*shad = glCreateShader(type);
 
 		std::string source;
-		if (!preprocess_shader(filepath, &source)) {
-			fprintf(stderr, "Could produce load shader source! \"%s\"\n", filepath.c_str());
-			return false;
-		}
+		if (!preprocess_shader(filepath, &source)) return false;
 
 		{
 			cstr ptr = source.c_str();
