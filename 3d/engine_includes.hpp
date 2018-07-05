@@ -65,5 +65,10 @@ namespace engine {
 
 namespace engine {
 	constexpr srgba8 black = 0;
+	constexpr lrgba lblack = 0;
+
 	constexpr srgba8 white = 255;
+	constexpr lrgba lwhite = 1;
+
+	constexpr v3	identity_normal = v3(0.5f,0.5f,1);
 }

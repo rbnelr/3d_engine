@@ -2,6 +2,46 @@
 #include "engine.hpp"
 using namespace engine;
 
+void set_material_albedo(Shader* s, Texture2D const& tex) {
+	bind_texture(s,	"albedo_tex", 0, tex);
+	set_uniform(s,	"albedo_mult", lrgba(1));
+	set_uniform(s,	"albedo_offs", lrgba(0));
+}
+void set_material_albedo(Shader* s, lrgba col) {
+	bind_texture(s, "albedo_tex", 0, *tex_black());
+	set_uniform(s,	"albedo_mult", lrgba(0));
+	set_uniform(s,	"albedo_offs", col);
+}
+
+void set_material_metallic(Shader* s, Texture2D const& tex) {
+	bind_texture(s,	"metallic_tex", 1, tex);
+	set_uniform(s,	"metallic_mult", 1.0f);
+	set_uniform(s,	"metallic_offs", 0.0f);
+}
+void set_material_metallic(Shader* s, flt val) {
+	bind_texture(s,	"metallic_tex", 1, *tex_black());
+	set_uniform(s,	"metallic_mult", 0.0f);
+	set_uniform(s,	"metallic_offs", val);
+}
+
+void set_material_roughness(Shader* s, Texture2D const& tex) {
+	bind_texture(s,	"roughness_tex", 2, tex);
+	set_uniform(s,	"roughness_mult", 1.0f);
+	set_uniform(s,	"roughness_offs", 0.0f);
+}
+void set_material_roughness(Shader* s, flt val) {
+	bind_texture(s, "roughness_tex", 2, *tex_black());
+	set_uniform(s,	"roughness_mult", 0.0f);
+	set_uniform(s,	"roughness_offs", val);
+}
+
+void set_material_normal(Shader* s, Texture2D const& tex) {
+	bind_texture(s,	"normal_tex", 3, tex);
+}
+void set_material_normal_identity(Shader* s) {
+	bind_texture(s,	"normal_tex", 3, *tex_identity_normal());
+}
+
 std::string shad_default_2d =			"shaders/default_2d";
 std::string shad_default_3d =			"shaders/default_3d";
 
@@ -326,10 +366,10 @@ int main () {
 
 				bind_texture(s, "skybox", 0, *skybox);
 
-				bind_texture(s, "tex_albedo",		0, *get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_A.tga", { PF_LRGB8 }));
-				bind_texture(s, "tex_metallic",		1, *get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_M.tga", { PF_LRGB8 }));
-				bind_texture(s, "tex_roughness",	2, *get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_R.tga", { PF_LRGB8 }));
-				bind_texture(s, "tex_normal",		3, *get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
+				set_material_albedo(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_A.tga", { PF_SRGB8 }));
+				set_material_metallic(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_M.tga", { PF_LRGB8 }));
+				set_material_roughness(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_R.tga", { PF_LRGB8 }));
+				set_material_normal(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
 
 				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
 			}
@@ -347,10 +387,10 @@ int main () {
 
 				bind_texture(s, "skybox", 0, *skybox);
 
-				bind_texture(s, "tex_albedo",		0, *tex_white());
-				bind_texture(s, "tex_metallic",		1, *tex_black());
-				bind_texture(s, "tex_roughness",	2, *tex_grey());
-				bind_texture(s, "tex_normal",		3, *tex_identity_normal());
+				set_material_albedo(s,		lwhite);
+				set_material_metallic(s,	0);
+				set_material_roughness(s,	0.8f);
+				set_material_normal_identity(s);
 
 				draw_triangles(*s, 0, (int)mesh->vbo_data.size());
 			}
@@ -404,20 +444,20 @@ int main () {
 						}
 
 						tmp = upload_texture(pixels, iv2(16,16), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST });
-						bind_texture(s, "tex_albedo", 0, tmp);
+						set_material_albedo(s, tmp);
 					} else if ( tex_select == 1 ) {
-						bind_texture(s, "tex_albedo", 0, *get_texture("assets/dab.png", { PF_SRGBA8, NO_MIPMAPS }));
+						set_material_albedo(s, *get_texture("assets/dab.png", { PF_SRGBA8, NO_MIPMAPS }));
 					} else if ( tex_select == 2 ) {
 
 						if (prev_framebuffer)
-							bind_texture(s, "tex_albedo", 0, *prev_framebuffer);
+							set_material_albedo(s, *prev_framebuffer);
 						else
-							bind_texture(s, "tex_albedo", 0, upload_texture(&black, iv2(1,1), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST }));
+							set_material_albedo(s, upload_texture(&black, iv2(1,1), { PF_SRGBA8, NO_MIPMAPS, FILTER_NEAREST }));
 					}
 
-					bind_texture(s, "tex_metallic",		1, *tex_black());
-					bind_texture(s, "tex_roughness",	2, *tex_grey());
-					bind_texture(s, "tex_normal",		3, *tex_identity_normal());
+					set_material_metallic(s,	0);
+					set_material_roughness(s,	0.5f);
+					set_material_normal_identity(s);
 
 					draw_stream_triangles(*s, quad);
 				}
