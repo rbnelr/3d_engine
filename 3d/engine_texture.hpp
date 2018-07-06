@@ -40,6 +40,21 @@ enum border_mode_e {
 	BORDER_COLOR,
 };
 
+template <typename FOREACH> int mipmap_chain (iv2 initial_size, FOREACH f) {
+	int mip_i = 0;
+	iv2 sz = initial_size;
+
+	for (;; ++mip_i) {
+		f(mip_i, sz);
+
+		if (all(sz == 1))
+			break;
+
+		sz = max(sz / 2, 1);
+	}
+	return mip_i;
+}
+
 // minimal but still useful texture class
 // if you need the size of the texture or the mipmap count just create a wrapper class
 class Texture {
@@ -162,20 +177,6 @@ private:
 		glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, last);
 	}
 
-	template <typename FOREACH> int mipmap_chain (iv2 initial_size, FOREACH f) {
-		int mip_i = 0;
-		iv2 sz = initial_size;
-		
-		for (;; ++mip_i) {
-			f(mip_i, sz);
-
-			if (all(sz == 1))
-				break;
-
-			sz = max(sz / 2, 1);
-		}
-		return mip_i;
-	}
 public:
 	
 	void generate_mipmaps (GLenum target) {
@@ -531,89 +532,6 @@ Texture2D* tex_black () {			static Texture2D tex = upload_texture(lrgba(0,0,0,1)
 Texture2D* tex_grey () {			static Texture2D tex = upload_texture(lrgba(0.5f,0.5f,0.5f,1));	return &tex; }
 Texture2D* tex_white () {			static Texture2D tex = upload_texture(lrgba(1));				return &tex; }
 Texture2D* tex_identity_normal () {	static Texture2D tex = upload_texture(lrgba(0.5f,0.5f,1,1));	return &tex; }
-
-//
-struct Imgui_Texture_Window {
-	std::string	tex_name = "";
-
-	bool open = false;
-
-	// where to display texture
-	v2 pos_screen;
-	v2 size_screen;
-};
-
-std::vector< unique_ptr<Imgui_Texture_Window> > texture_windows;
-
-void draw_tex_2d (ImDrawList const* parent_list, ImDrawCmd const* cmd) {
-	auto* w = (Imgui_Texture_Window*)cmd->UserCallbackData;
-
-	Any_Texture* tex = texture_manager.find_texture(w->tex_name);
-	assert(tex->type == TEXTURE_2D);
-
-	auto* shad = use_shader("imgui_texture_window_2d");
-	assert(shad);
-
-
-	struct Vertex {
-		v2		pos_screen; // top down coords
-		v2		uv;
-	};
-	const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
-		{ "pos_screen",			FV2,	(int)offsetof(Vertex, pos_screen) },
-		{ "uv",					FV2,	(int)offsetof(Vertex, uv) },
-	}
-
-	std::vector<Vertex> vbo_data;
-
-	draw_stream_triangles(*shad, vbo_data, );
-}
-
-void imgui_texture_windows () {
-	
-	if (ImGui::Button("Texture Window")) {
-		auto first_not_open_window = std::find_if(texture_windows.begin(), texture_windows.end(), [] (unique_ptr<Imgui_Texture_Window> const& w) { return !w->open; });
-		if (first_not_open_window == texture_windows.end()) {
-			texture_windows.emplace_back( make_unique<Imgui_Texture_Window>() );
-			first_not_open_window = texture_windows.end() -1;
-		}
-
-		(*first_not_open_window)->open = true;
-	}
-
-	for (int i=0; i<(int)texture_windows.size(); ++i) {
-		auto& w = texture_windows[i];
-		if (!w->open) continue;
-
-		if (ImGui::Begin(prints("Texture Window %d", i).c_str(), &w->open)) {
-			
-			if (ImGui::BeginCombo("tex_name", w->tex_name.c_str())) {
-				for (auto& t : texture_manager.textures) {
-					bool is_selected = t.first.compare(w->tex_name) == 0;
-					if (ImGui::Selectable(t.first.c_str(), is_selected))
-						w->tex_name = t.first;
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-
-			Any_Texture* tex = texture_manager.find_texture(w->tex_name);
-
-			if (tex && tex->type == TEXTURE_2D) {
-				v2 display_size = ImGui::GetContentRegionAvailWidth();
-				display_size.y *= tex->size_px.y / tex->size_px.x;
-
-				auto pos_screen = ImGui::GetCursorScreenPos();
-
-
-				ImGui::GetWindowDrawList()->AddCallback(draw_tex_2d, w.get());
-			}
-
-			ImGui::End();
-		}
-	}
-}
 
 //
 }

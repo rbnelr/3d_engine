@@ -136,6 +136,8 @@
     <None Include="shaders\fullscreen_quad.vert" />
     <None Include="shaders\imgui.frag" />
     <None Include="shaders\imgui.vert" />
+    <None Include="shaders\imgui_texture_window_2d.frag" />
+    <None Include="shaders\imgui_texture_window_2d.vert" />
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\skybox.vert" />
     <None Include="shaders\skybox_cubemap_gen.frag" />

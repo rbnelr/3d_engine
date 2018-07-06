@@ -152,8 +152,6 @@ namespace engine {
 			{ "col_srgba",			RGBA8,	(int)offsetof(Imgui_Vertex_2d, col_srgba) }
 		}};
 
-		glBindBuffer(GL_ARRAY_BUFFER, vbo.get_handle());
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo.get_handle());
 
 		for (int n = 0; n < draw_data->CmdListsCount; n++) {
 			auto* cmd_list = draw_data->CmdLists[n];
@@ -163,6 +161,9 @@ namespace engine {
 
 			auto vertex_size = cmd_list->VtxBuffer.size() * sizeof(ImDrawVert);
 			auto index_size = cmd_list->IdxBuffer.size() * sizeof(ImDrawIdx);
+
+			glBindBuffer(GL_ARRAY_BUFFER, vbo.get_handle());
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo.get_handle());
 
 			glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vertex_size, NULL, GL_DYNAMIC_DRAW); // Buffer orphan on reupload
 			glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vertex_size, vtx_buffer, GL_DYNAMIC_DRAW);
@@ -204,4 +205,152 @@ namespace engine {
 	}
 
 	// ImGui::DestroyContext();
+
+	struct Imgui_Texture_Window {
+		std::string	tex_name = "";
+
+		bool open = false;
+
+		bv4		show_channels = true;
+		float	show_lod = 0;
+		bool	nearest_filter = false;
+
+		// where to display texture
+		v2 pos_screen;
+		v2 size_screen;
+	};
+
+	std::vector< unique_ptr<Imgui_Texture_Window> > texture_windows;
+
+	struct Engine_Draw_Texture_Vertex {
+		v2		pos_screen; // top down coords
+		v2		uv;
+
+		static const Data_Vertex_Layout layout;
+	};
+	const Data_Vertex_Layout Engine_Draw_Texture_Vertex::layout = { (int)sizeof(Engine_Draw_Texture_Vertex), {
+		{ "pos_screen",			FV2,	(int)offsetof(Engine_Draw_Texture_Vertex, pos_screen) },
+		{ "uv",					FV2,	(int)offsetof(Engine_Draw_Texture_Vertex, uv) },
+	}};
+
+	void draw_tex_2d (ImDrawList const* parent_list, ImDrawCmd const* cmd) {
+		auto* w = (Imgui_Texture_Window*)cmd->UserCallbackData;
+
+		Any_Texture* tex = texture_manager.find_texture(w->tex_name);
+		assert(tex->type == TEXTURE_2D);
+
+		auto* s = use_shader("shaders/imgui_texture_window_2d");
+		assert(s);
+
+		set_uniform(s, "show_channels", w->show_channels);
+		set_uniform(s, "show_lod", w->show_lod);
+
+		GLuint sampler_normal, sampler_nearest;
+		{
+			glGenSamplers(1, &sampler_normal);
+			glGenSamplers(1, &sampler_nearest);
+
+			glSamplerParameteri(sampler_normal, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glSamplerParameteri(sampler_normal, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glSamplerParameteri(sampler_normal, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glSamplerParameteri(sampler_normal, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+			glSamplerParameteri(sampler_nearest, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+			glSamplerParameteri(sampler_nearest, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glSamplerParameteri(sampler_nearest, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glSamplerParameteri(sampler_nearest, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		}
+
+		std::vector<Engine_Draw_Texture_Vertex> vbo_data;
+		for (auto p : quad_verts) {
+			Engine_Draw_Texture_Vertex v;
+			v.pos_screen = w->pos_screen + p * w->size_screen;
+			v.uv = v2(p.x, 1 -p.y);
+			vbo_data.push_back(v);
+		}
+
+		glBindSampler(0, w->nearest_filter ? sampler_nearest : sampler_normal);
+
+		bind_texture(s, "tex", 0, tex->tex2d);
+
+		draw_stream_triangles(*s, vbo_data);
+
+		glBindSampler(0, 0);
+	}
+	
+	void imgui_texture_windows () {
+
+		if (ImGui::Button("Texture Window")) {
+			auto first_not_open_window = std::find_if(texture_windows.begin(), texture_windows.end(), [] (unique_ptr<Imgui_Texture_Window> const& w) { return !w->open; });
+			if (first_not_open_window == texture_windows.end()) {
+				texture_windows.emplace_back( make_unique<Imgui_Texture_Window>() );
+				first_not_open_window = texture_windows.end() -1;
+			}
+
+			(*first_not_open_window)->open = true;
+		}
+
+		for (int i=0; i<(int)texture_windows.size(); ++i) {
+			auto& w = texture_windows[i];
+			if (!w->open) continue;
+
+			if (ImGui::Begin(prints("Texture Window %d", i).c_str(), &w->open)) {
+				
+				if (ImGui::BeginCombo("tex_name", w->tex_name.c_str())) {
+					for (auto& t : texture_manager.textures) {
+						bool is_selected = t.first.compare(w->tex_name) == 0;
+						if (ImGui::Selectable(t.first.c_str(), is_selected))
+							w->tex_name = t.first;
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+
+				Any_Texture* tex = texture_manager.find_texture(w->tex_name);
+
+				if (tex && tex->type == TEXTURE_2D) {
+					
+					static std::vector<iv2> mip_sizes;
+					mip_sizes.clear();
+
+					if (tex->o.mipmap_mode == USE_MIPMAPS) {
+						mipmap_chain(tex->size_px, [&] (int mip, iv2 sz) {
+								mip_sizes.push_back(sz);
+							});
+					} else {
+						mip_sizes.push_back(tex->size_px);
+					}
+
+					ImGui::Text("size: %4d x %4d  mips: %2d", tex->size_px.x,tex->size_px.y, (int)mip_sizes.size());
+
+					for (int i=0; i<4; ++i) {
+						cstr labels[4] = {"R","G","B","A"};
+						ImGui::Checkbox(labels[i], &w->show_channels[i]);
+
+						ImGui::SameLine();
+					}
+
+					ImGui::Checkbox("Nearest", &w->nearest_filter);
+
+					iv2 mip_sz = mip_sizes[ (int)roundf(w->show_lod) ];
+					ImGui::SameLine();
+					ImGui::SliderFloat("##show_lod", &w->show_lod, 0,(flt)mip_sizes.size() -1, prints("show_lod: %4.1f  %4d x %4d", w->show_lod, mip_sz.x,mip_sz.y).c_str());
+
+					v2 display_size = ImGui::GetContentRegionAvailWidth();
+					display_size.y *= tex->size_px.y / tex->size_px.x;
+
+					auto pos_screen = ImGui::GetCursorScreenPos();
+
+					w->pos_screen = v2(pos_screen.x,pos_screen.y);
+					w->size_screen = display_size;
+
+					ImGui::GetWindowDrawList()->AddCallback(draw_tex_2d, w.get());
+				}
+
+			}
+			ImGui::End();
+		}
+	}
+
 }

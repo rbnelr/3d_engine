@@ -413,7 +413,7 @@ int main () {
 
 			std::vector<Default_Vertex_3d> quad;
 
-			for (auto p : { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) }) {
+			for (auto p : quad_verts) {
 				Default_Vertex_3d v;
 				v.pos_model = v3(p -0.5f, +0.5f);
 				v.normal_model = v3(0,0,1);
