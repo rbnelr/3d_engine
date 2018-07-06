@@ -65,13 +65,6 @@ namespace ImGui {
 namespace engine {
 	Texture2D imgui_atlas;
 
-	//begin_user_texture_callback_fp begin_user_texture_callback = nullptr;
-	//end_user_texture_callback_fp end_user_texture_callback = nullptr;
-	//
-	//unique_ptr<Texture2D> imgui_make_user_texture (pixel_format_e format, void const* pixels, s32v2 size_px, minmag_filter_e minmag, aniso_filter_e aniso, border_e border, rgba8 border_color) {
-	//	return make_unique<Texture2D>( single_mip_texture(format, pixels, size_px, minmag, aniso, border, border_color) );
-	//}
-
 	void begin_imgui (Input const& inp, flt dt) {
 		auto init = [] () {
 			ImGui::CreateContext();
@@ -148,9 +141,6 @@ namespace engine {
 		static VBO vbo = VBO::generate();
 		static EBO ebo = EBO::generate();
 
-		auto shad = use_shader("shaders/imgui");
-		assert(shad);
-
 		struct Imgui_Vertex_2d {
 			v2		pos_screen; // top down coords
 			v2		uv				= 0.5f;
@@ -161,8 +151,6 @@ namespace engine {
 			{ "uv",					FV2,	(int)offsetof(Imgui_Vertex_2d, uv) },
 			{ "col_srgba",			RGBA8,	(int)offsetof(Imgui_Vertex_2d, col_srgba) }
 		}};
-
-		use_vertex_data(*shad, layout, vbo);
 
 		glBindBuffer(GL_ARRAY_BUFFER, vbo.get_handle());
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo.get_handle());
@@ -189,25 +177,26 @@ namespace engine {
 				if (pcmd->UserCallback) {
 					pcmd->UserCallback(cmd_list, pcmd);
 				} else {
-					unique_ptr<Texture2D> user_texture = nullptr;
-
-					//if (pcmd->TextureId != &imgui_atlas && begin_user_texture_callback) {
-					//	user_texture = begin_user_texture_callback(pcmd->TextureId);
-					//}
 					
+					if (pcmd->TextureId != (ImTextureID)&imgui_atlas) {
+						assert(not_implemented);
+					}
+
+					auto shad = use_shader("shaders/imgui");
+					assert(shad);
+
+					use_vertex_data(*shad, layout, vbo);
+
 					flt y0 = (flt)wnd_size_px.y -pcmd->ClipRect.w;
 					flt y1 = (flt)wnd_size_px.y -pcmd->ClipRect.y;
 
 					glScissor((int)pcmd->ClipRect.x, (int)y0, (int)(pcmd->ClipRect.z -pcmd->ClipRect.x), (int)(y1 -y0));
 
-					bind_texture(shad, "tex", 0, user_texture ? *user_texture : imgui_atlas);
+					bind_texture(shad, "tex", 0, imgui_atlas);
 
 					auto* ptr = (GLvoid const*)((u8 const*)cur_idx_buffer -(u8 const*)idx_buffer);
 					glDrawElements(GL_TRIANGLES, pcmd->ElemCount, GL_UNSIGNED_SHORT, ptr);
 
-					//if (pcmd->TextureId != &imgui_atlas && end_user_texture_callback) {
-					//	end_user_texture_callback(pcmd->TextureId, std::move(user_texture));
-					//}
 				}
 				cur_idx_buffer += pcmd->ElemCount;
 			}

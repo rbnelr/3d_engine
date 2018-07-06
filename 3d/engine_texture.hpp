@@ -288,6 +288,11 @@ void swap (Texture& l, Texture& r) {
 	std::swap(l.handle, r.handle);
 }
 
+enum texture_type_e {
+	TEXTURE_2D,
+	TEXTURE_CUBE,
+};
+
 class Texture2D : public Texture {
 	using Texture::generate;
 public:
@@ -355,7 +360,7 @@ u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2
 	return pixels;
 }
 
-Texture2D upload_texture_from_file (std::string const& filepath, Texture::Options o) {
+Texture2D upload_texture_from_file (std::string const& filepath, Texture::Options o, iv2* out_size_px=nullptr) {
 	
 	iv2 size_px;
 	auto* pixels = get_image2d_file_pixel(filepath, o, &size_px);
@@ -367,6 +372,7 @@ Texture2D upload_texture_from_file (std::string const& filepath, Texture::Option
 
 	free(pixels);
 
+	*out_size_px = size_px;
 	return tex;
 }
 
@@ -377,7 +383,7 @@ enum _90_deg_rotation {
 	ROT_270,
 };
 
-TextureCube upload_cube_texture_from_multifile (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
+TextureCube upload_cube_texture_from_multifile (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}, iv2* out_size_px=nullptr) {
 	
 	auto tex = TextureCube::generate(o);
 
@@ -423,38 +429,73 @@ TextureCube upload_cube_texture_from_multifile (std::string const& name_format, 
 		tex.generate_mipmaps(GL_TEXTURE_CUBE_MAP);
 	}
 
+	*out_size_px = prev_size_px;
 	return tex;
 }
 
+void imgui_texture_window_register_texture (std::string const& name);
+
+struct Any_Texture {
+	texture_type_e		type;
+	union {
+		Texture2D		tex2d;
+		TextureCube		tex_cube;
+	};
+	iv2					size_px;
+	Texture::Options	o;
+
+	Any_Texture (Texture2D t, iv2 sz, Texture::Options o):		type{TEXTURE_2D},	tex2d{std::move(t)},	size_px{sz}, o{o} {}
+	Any_Texture (TextureCube t, iv2 sz, Texture::Options o):	type{TEXTURE_CUBE},	tex_cube{std::move(t)},	size_px{sz}, o{o} {}
+
+	~Any_Texture () {
+		switch (type) { // destruct active element in union
+		case TEXTURE_2D:	std::move(tex2d);		break;
+		case TEXTURE_CUBE:	std::move(tex_cube);	break;
+		default:	assert(not_implemented);
+		}
+	}
+};
+
 struct Texture_Manager {
-	std::unordered_map<std::string, Texture2D> textures;
-	std::unordered_map<std::string, TextureCube> textures_cube;
 	
-	Texture2D* get_texture (std::string const& name, Texture::Options o) {
+	std::unordered_map<std::string, unique_ptr<Any_Texture>> textures;
+
+	Any_Texture* find_texture (std::string const& name) {
 		auto tex = textures.find(name);
-		if (tex == textures.end())
-			tex = textures.emplace(name, upload_texture_from_file(name, o)).first;
+		return tex == textures.end() ? nullptr : tex->second.get();
+	}
 
-		//assert(shad->second.o == o);
-		return &tex->second;
+	Texture2D* get_texture (std::string const& name, Texture::Options o) {
+		auto tex = find_texture(name);
+		if (!tex) {
+			iv2 size_px;
+			auto tmp = upload_texture_from_file(name, o, &size_px);
+			tex = textures.emplace(name, make_unique<Any_Texture>(std::move(tmp), size_px, o)).first->second.get();
+		}
+
+		assert(tex->type == TEXTURE_2D && tex->o == o);
+		return &tex->tex2d;
 	}
 	
-	TextureCube* get_multifile_cubemap (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
-		auto tex = textures_cube.find(name_format);
-		if (tex == textures_cube.end())
-			tex = textures_cube.emplace(name_format, upload_cube_texture_from_multifile(name_format, o, face_names, rotation)).first;
+	TextureCube* get_multifile_cubemap (std::string const& name, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
+		auto tex = find_texture(name);
+		if (!tex) {
+			iv2 size_px;
+			auto tmp = upload_cube_texture_from_multifile(name, o, face_names, rotation, &size_px);
+			tex = textures.emplace(name, make_unique<Any_Texture>(std::move(tmp), size_px, o)).first->second.get();
+		}
 
-		//assert(shad->second.o == o);
-		return &tex->second;
+		assert(tex->type == TEXTURE_CUBE && tex->o == o);
+		return &tex->tex_cube;
 	}
 
-	bool evict_cubemap (std::string const& name) {
-		auto shad = textures_cube.find(name);
-		if (shad == textures_cube.end()) {
+	bool evict_texture (std::string const& name) {
+		auto shad = textures.find(name);
+		if (shad == textures.end()) {
 			return false;
 		}
 		
-		textures_cube.erase(shad);
+		textures.erase(shad);
 		return true;
 	}
 };
@@ -468,8 +509,8 @@ Texture2D* get_texture (std::string const& name, Texture::Options o) {
 TextureCube* get_multifile_cubemap (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
 	return texture_manager.get_multifile_cubemap(name_format, o, face_names, rotation);
 }
-bool evict_cubemap (std::string const& name) {
-	return texture_manager.evict_cubemap(name);
+bool evict_texture (std::string const& name) {
+	return texture_manager.evict_texture(name);
 }
 
 
@@ -490,6 +531,89 @@ Texture2D* tex_black () {			static Texture2D tex = upload_texture(lrgba(0,0,0,1)
 Texture2D* tex_grey () {			static Texture2D tex = upload_texture(lrgba(0.5f,0.5f,0.5f,1));	return &tex; }
 Texture2D* tex_white () {			static Texture2D tex = upload_texture(lrgba(1));				return &tex; }
 Texture2D* tex_identity_normal () {	static Texture2D tex = upload_texture(lrgba(0.5f,0.5f,1,1));	return &tex; }
+
+//
+struct Imgui_Texture_Window {
+	std::string	tex_name = "";
+
+	bool open = false;
+
+	// where to display texture
+	v2 pos_screen;
+	v2 size_screen;
+};
+
+std::vector< unique_ptr<Imgui_Texture_Window> > texture_windows;
+
+void draw_tex_2d (ImDrawList const* parent_list, ImDrawCmd const* cmd) {
+	auto* w = (Imgui_Texture_Window*)cmd->UserCallbackData;
+
+	Any_Texture* tex = texture_manager.find_texture(w->tex_name);
+	assert(tex->type == TEXTURE_2D);
+
+	auto* shad = use_shader("imgui_texture_window_2d");
+	assert(shad);
+
+
+	struct Vertex {
+		v2		pos_screen; // top down coords
+		v2		uv;
+	};
+	const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
+		{ "pos_screen",			FV2,	(int)offsetof(Vertex, pos_screen) },
+		{ "uv",					FV2,	(int)offsetof(Vertex, uv) },
+	}
+
+	std::vector<Vertex> vbo_data;
+
+	draw_stream_triangles(*shad, vbo_data, );
+}
+
+void imgui_texture_windows () {
+	
+	if (ImGui::Button("Texture Window")) {
+		auto first_not_open_window = std::find_if(texture_windows.begin(), texture_windows.end(), [] (unique_ptr<Imgui_Texture_Window> const& w) { return !w->open; });
+		if (first_not_open_window == texture_windows.end()) {
+			texture_windows.emplace_back( make_unique<Imgui_Texture_Window>() );
+			first_not_open_window = texture_windows.end() -1;
+		}
+
+		(*first_not_open_window)->open = true;
+	}
+
+	for (int i=0; i<(int)texture_windows.size(); ++i) {
+		auto& w = texture_windows[i];
+		if (!w->open) continue;
+
+		if (ImGui::Begin(prints("Texture Window %d", i).c_str(), &w->open)) {
+			
+			if (ImGui::BeginCombo("tex_name", w->tex_name.c_str())) {
+				for (auto& t : texture_manager.textures) {
+					bool is_selected = t.first.compare(w->tex_name) == 0;
+					if (ImGui::Selectable(t.first.c_str(), is_selected))
+						w->tex_name = t.first;
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+
+			Any_Texture* tex = texture_manager.find_texture(w->tex_name);
+
+			if (tex && tex->type == TEXTURE_2D) {
+				v2 display_size = ImGui::GetContentRegionAvailWidth();
+				display_size.y *= tex->size_px.y / tex->size_px.x;
+
+				auto pos_screen = ImGui::GetCursorScreenPos();
+
+
+				ImGui::GetWindowDrawList()->AddCallback(draw_tex_2d, w.get());
+			}
+
+			ImGui::End();
+		}
+	}
+}
 
 //
 }

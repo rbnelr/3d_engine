@@ -134,7 +134,7 @@ namespace engine {
 
 	struct Window {
 
-		GLFWwindow*			window;
+		GLFWwindow*			window = nullptr;
 
 		e_vsync_mode		vsync_mode;
 
@@ -216,6 +216,8 @@ namespace engine {
 		}
 
 		void create (std::string const& title, iv2 default_size, e_vsync_mode vsync_mode) {
+			assert(window == nullptr);
+			
 			this->vsync_mode = vsync_mode;
 
 			glfwSetErrorCallback(glfw_error_proc);
@@ -276,10 +278,13 @@ namespace engine {
 
 			glfwDestroyWindow(window);
 			glfwTerminate();
+
+			window = nullptr;
 		}
 
 		~Window () {
-			close();
+			if (window)
+				close();
 		}
 
 		Input& poll_input () {

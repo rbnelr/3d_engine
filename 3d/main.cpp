@@ -2,6 +2,7 @@
 #include "engine.hpp"
 using namespace engine;
 
+
 void set_material_albedo(Shader* s, Texture2D const& tex) {
 	bind_texture(s,	"albedo_tex", 0, tex);
 	set_uniform(s,	"albedo_mult", lrgba(1));
@@ -263,7 +264,7 @@ int main () {
 			
 			static cstr prev_selected_skybox = skyboxes[selected_skybox];
 			if (selected_skybox_changed) {
-				evict_cubemap(prev_selected_skybox);
+				evict_texture(prev_selected_skybox);
 				
 				prev_selected_skybox = skyboxes[selected_skybox];
 			}
@@ -557,7 +558,10 @@ int main () {
 					draw_triangles(*shad, 0, 6);
 				}
 			}
+
 		}
+		
+		imgui_texture_windows();
 
 		draw_to_screen(inp.wnd_size_px);
 		end_imgui(inp.wnd_size_px);
