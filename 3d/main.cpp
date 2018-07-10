@@ -253,7 +253,8 @@ int main () {
 			auto s = use_shader("shaders/skybox_cubemap_gen");
 			assert(s);
 
-			set_uniform(s, "dir_to_sun_skybox", skyboxes_dir_to_sun_skybox[0]);
+			//
+			set_uniform(s, "dir_to_sun", skyboxes_dir_to_sun_skybox[0]);
 
 			draw_entire_cubemap(s, skybox, cubemap_res);
 		}

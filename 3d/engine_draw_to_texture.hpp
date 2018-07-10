@@ -120,10 +120,10 @@ void draw_entire_cubemap (Shader* shad, TextureCube* cubemap, iv2 cubemap_res) {
 	glDisable(GL_SCISSOR_TEST);
 
 	struct Vertex {
-		v3		pos_skybox;
+		v3		pos;
 	};
 	const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
-		{ "pos_skybox",		FV3,	(int)offsetof(Vertex, pos_skybox) },
+		{ "pos",		FV3,	(int)offsetof(Vertex, pos) },
 	}};
 
 	static std::vector<Vertex> cube;
@@ -134,7 +134,7 @@ void draw_entire_cubemap (Shader* shad, TextureCube* cubemap, iv2 cubemap_res) {
 
 	bind_vertex_data(vbo, layout, *shad);
 
-	static m3 faces_world_to_cam[6] = {
+	static m3 faces_to_cam[6] = {
 		rotate3_X(deg(-90)) *	rotate3_Z(deg(+90)),	// pos x , our right
 		rotate3_X(deg(-90)) *	rotate3_Z(deg(-90)),	// neg x , our left
 		m3::ident(),									// pos y , our down
@@ -149,7 +149,7 @@ void draw_entire_cubemap (Shader* shad, TextureCube* cubemap, iv2 cubemap_res) {
 	for (auto face=0; face<6; ++face) {
 		fbo.draw_to_face(face, cubemap_res);
 
-		set_uniform(shad, "skybox_to_cam", faces_world_to_cam[face]);
+		set_uniform(shad, "to_cam", faces_to_cam[face]);
 
 		draw_triangles(*shad, 0, (int)cube.size());
 	}

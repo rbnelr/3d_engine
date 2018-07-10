@@ -60,6 +60,12 @@
     <None Include="shaders\imgui_texture_window_2d.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\pbr_irradiance_convolve.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_irradiance_convolve.vert">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

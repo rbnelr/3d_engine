@@ -112,6 +112,8 @@ namespace engine {
 				TYPING,
 			};
 
+			type_e	type;
+
 			union {
 				struct {
 					v2			delta_screen;
@@ -127,6 +129,9 @@ namespace engine {
 					utf32		codepoint;
 				} Typing;
 			};
+
+			Event () {} 
+			Event (type_e t): type{t} {} 
 		};
 
 		std::vector<Event>	events;

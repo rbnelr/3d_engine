@@ -70,29 +70,8 @@ namespace engine {
 			ImGui::CreateContext();
 			ImGuiIO& io = ImGui::GetIO();
 
-			{
-				io.KeyMap[ ImGuiKey_Tab			 ] = GLFW_KEY_TAB;
-				io.KeyMap[ ImGuiKey_LeftArrow	 ] = GLFW_KEY_LEFT;
-				io.KeyMap[ ImGuiKey_RightArrow	 ] = GLFW_KEY_RIGHT;
-				io.KeyMap[ ImGuiKey_UpArrow		 ] = GLFW_KEY_UP;
-				io.KeyMap[ ImGuiKey_DownArrow	 ] = GLFW_KEY_DOWN;
-				io.KeyMap[ ImGuiKey_PageUp		 ] = GLFW_KEY_PAGE_UP;
-				io.KeyMap[ ImGuiKey_PageDown	 ] = GLFW_KEY_PAGE_DOWN;
-				io.KeyMap[ ImGuiKey_Home		 ] = GLFW_KEY_HOME;
-				io.KeyMap[ ImGuiKey_End			 ] = GLFW_KEY_END;
-				io.KeyMap[ ImGuiKey_Insert		 ] = GLFW_KEY_INSERT;
-				io.KeyMap[ ImGuiKey_Delete		 ] = GLFW_KEY_DELETE;
-				io.KeyMap[ ImGuiKey_Backspace	 ] = GLFW_KEY_BACKSPACE;
-				io.KeyMap[ ImGuiKey_Space		 ] = GLFW_KEY_SPACE;
-				io.KeyMap[ ImGuiKey_Enter		 ] = GLFW_KEY_ENTER;
-				io.KeyMap[ ImGuiKey_Escape		 ] = GLFW_KEY_ESCAPE;
-				io.KeyMap[ ImGuiKey_A			 ] = GLFW_KEY_A;
-				io.KeyMap[ ImGuiKey_C			 ] = GLFW_KEY_C;
-				io.KeyMap[ ImGuiKey_V			 ] = GLFW_KEY_V;
-				io.KeyMap[ ImGuiKey_X			 ] = GLFW_KEY_X;
-				io.KeyMap[ ImGuiKey_Y			 ] = GLFW_KEY_Y;
-				io.KeyMap[ ImGuiKey_Z			 ] = GLFW_KEY_Z;
-			}
+			for (int i=0; i<ARRLEN(io.KeyMap); ++i)
+				io.KeyMap[i] = i;
 
 			{
 				typedef srgba8 pixel;
@@ -110,9 +89,41 @@ namespace engine {
 
 			return true;
 		};
-		static bool initialized = init();
+		static bool dummy = init();
 
 		ImGuiIO& io = ImGui::GetIO();
+		
+		io.KeysDown[ ImGuiKey_Tab			] = inp.buttons[ GLFW_KEY_TAB		].is_down;
+		io.KeysDown[ ImGuiKey_LeftArrow		] = inp.buttons[ GLFW_KEY_LEFT		].is_down;
+		io.KeysDown[ ImGuiKey_RightArrow	] = inp.buttons[ GLFW_KEY_RIGHT		].is_down;
+		io.KeysDown[ ImGuiKey_UpArrow		] = inp.buttons[ GLFW_KEY_UP		].is_down;
+		io.KeysDown[ ImGuiKey_DownArrow		] = inp.buttons[ GLFW_KEY_DOWN		].is_down;
+		io.KeysDown[ ImGuiKey_PageUp		] = inp.buttons[ GLFW_KEY_PAGE_UP	].is_down;
+		io.KeysDown[ ImGuiKey_PageDown		] = inp.buttons[ GLFW_KEY_PAGE_DOWN	].is_down;
+		io.KeysDown[ ImGuiKey_Home			] = inp.buttons[ GLFW_KEY_HOME		].is_down;
+		io.KeysDown[ ImGuiKey_End			] = inp.buttons[ GLFW_KEY_END		].is_down;
+		io.KeysDown[ ImGuiKey_Insert		] = inp.buttons[ GLFW_KEY_INSERT	].is_down;
+		io.KeysDown[ ImGuiKey_Delete		] = inp.buttons[ GLFW_KEY_DELETE	].is_down;
+		io.KeysDown[ ImGuiKey_Backspace		] = inp.buttons[ GLFW_KEY_BACKSPACE	].is_down;
+		io.KeysDown[ ImGuiKey_Space			] = inp.buttons[ GLFW_KEY_SPACE		].is_down;
+		io.KeysDown[ ImGuiKey_Enter			] = inp.buttons[ GLFW_KEY_ENTER		].is_down;
+		io.KeysDown[ ImGuiKey_Escape		] = inp.buttons[ GLFW_KEY_ESCAPE	].is_down;
+		io.KeysDown[ ImGuiKey_A				] = inp.buttons[ GLFW_KEY_A			].is_down;
+		io.KeysDown[ ImGuiKey_C				] = inp.buttons[ GLFW_KEY_C			].is_down;
+		io.KeysDown[ ImGuiKey_V				] = inp.buttons[ GLFW_KEY_V			].is_down;
+		io.KeysDown[ ImGuiKey_X				] = inp.buttons[ GLFW_KEY_X			].is_down;
+		io.KeysDown[ ImGuiKey_Y				] = inp.buttons[ GLFW_KEY_Y			].is_down;
+		io.KeysDown[ ImGuiKey_Z				] = inp.buttons[ GLFW_KEY_Z			].is_down;
+
+		io.KeyCtrl =	inp.buttons[ GLFW_KEY_LEFT_CONTROL	].is_down	|| inp.buttons[ GLFW_KEY_RIGHT_CONTROL	].is_down;
+		io.KeyShift =	inp.buttons[ GLFW_KEY_LEFT_SHIFT	].is_down	|| inp.buttons[ GLFW_KEY_RIGHT_SHIFT	].is_down;
+		io.KeyAlt =		inp.buttons[ GLFW_KEY_LEFT_ALT		].is_down	|| inp.buttons[ GLFW_KEY_RIGHT_ALT		].is_down;
+		io.KeySuper =	inp.buttons[ GLFW_KEY_LEFT_SUPER	].is_down	|| inp.buttons[ GLFW_KEY_RIGHT_SUPER	].is_down;
+
+		for (auto& e : inp.events) {
+			if (e.type == Input::Event::TYPING)
+				io.AddInputCharacter((ImWchar)e.Typing.codepoint);
+		}
 
 		io.DisplaySize.x = (flt)inp.wnd_size_px.x;
 		io.DisplaySize.y = (flt)inp.wnd_size_px.y;
