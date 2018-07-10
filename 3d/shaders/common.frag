@@ -33,8 +33,10 @@ $include "common.glsl"
 
 void main () {
 	
-	frag_col = frag();
-	
+	vec4 col = frag();
+	if (!dbg_output_set)
+		frag_col = col;
+
 #if WIREFRAME
 	if (wireframe_enable) {
 		float ef = wireframe_edge_factor();

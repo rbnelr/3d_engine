@@ -1,7 +1,7 @@
 
 #include "engine.hpp"
 using namespace engine;
-
+namespace imgui = ImGui;
 
 void set_material_albedo(Shader* s, Texture2D const& tex) {
 	bind_texture(s,	"albedo_tex", 0, tex);
@@ -54,36 +54,20 @@ hm calc_world_to_cam (v3 cam_pos_world, v3 cam_altazimuth) {
 	quat rot = rotateQ_Z(-cam_altazimuth.z) * rotateQ_X(-cam_altazimuth.y) * rotateQ_Z(-cam_altazimuth.x); // rotate world around camera
 	return hm(convert_to_m3(rot)) * translateH(-cam_pos_world);
 }
-m4 calc_perspective_matrix (flt vfov, flt clip_near, flt clip_far, flt aspect_w_over_h) {
-
-	v2 frustrum_scale = tan(vfov * 0.5f);
-	frustrum_scale.x *= aspect_w_over_h;
-
-	v2 frustrum_scale_inv = 1 / frustrum_scale;
-
-	f32 temp = clip_near -clip_far;
-
-	f32 x = frustrum_scale_inv.x;
-	f32 y = frustrum_scale_inv.y;
-	f32 a = (clip_far +clip_near) / temp;
-	f32 b = (2 * clip_far * clip_near) / temp;
-
-	return m4::rows(	x, 0, 0, 0,
-						0, y, 0, 0,
-						0, 0, a, b,
-						0, 0,-1, 0 );
-}
 
 struct Camera {
 	v3		pos_world = v3(0.1f, -2, +1);
-	flt		vel_cam = 4;
-
+	
 	v3		altazimuth = v3(0,deg(50),0); // x: azimuth (along horizon) y: altitude (up/down) z: roll
 	
 	flt		vfov = deg(75);
 
 	flt		clip_near = 1.0f / 16;
 	flt		clip_far = 1024;
+
+	// flycam movement
+	flt		base_speed = 1;
+	flt		fast_mult = 4;
 
 	void control (Input const& inp, flt dt) {
 		
@@ -106,8 +90,7 @@ struct Camera {
 		altazimuth.y = clamp(altazimuth.y, deg(0), deg(180));
 		altazimuth.z = mymod(altazimuth.z, deg(360));
 
-		v3 move_vel = inp.buttons[GLFW_KEY_LEFT_SHIFT].is_down ? vel_cam : 1.0f;
-
+		// movement
 		iv3 move_dir = 0;
 		if (inp.buttons['S'].is_down)					move_dir.z += 1;
 		if (inp.buttons['W'].is_down)					move_dir.z -= 1;
@@ -116,33 +99,20 @@ struct Camera {
 		if (inp.buttons[GLFW_KEY_LEFT_CONTROL].is_down)	move_dir.y -= 1;
 		if (inp.buttons[' '].is_down)					move_dir.y += 1;
 
-		pos_world += (calc_cam_to_world(pos_world, altazimuth).m3() * (normalize_or_zero((v3)move_dir) * move_vel)) * dt;
+		flt speed = base_speed * (inp.buttons[GLFW_KEY_LEFT_SHIFT].is_down ? fast_mult : 1);
+
+		pos_world += (calc_cam_to_world(pos_world, altazimuth).m3() * (normalize_or_zero((v3)move_dir) * speed)) * dt;
 	}
 
 	void imgui () {
-		ImGui::DragFloat3("cam.pos_world", &pos_world.x, 1.0f / 100);
-		ImGui::SliderAngle("cam.vfov", &vfov, 0,180);
+		imgui::DragFloat3("cam.pos_world", &pos_world.x, 1.0f / 100);
+		imgui::SliderAngle("cam.vfov", &vfov, 0,180);
 
-		ImGui::DragFloat("cam.vel_cam", &vel_cam, 1.0f / 100);
+		imgui::DragFloat("cam.base_speed", &base_speed, 1.0f / 10);
+		imgui::DragFloat("cam.fast_mult", &fast_mult, 1.0f / 10);
+
 	}
 };
-
-template <typename VERTEX> void quad (flt r, VERTEX vert) {
-	vert(v2(+r,-r));
-	vert(v2(+r,+r));
-	vert(v2(-r,-r));
-	vert(v2(-r,-r));
-	vert(v2(+r,+r));
-	vert(v2(-r,+r));
-}
-template <typename VERTEX> void generate_cube (flt r, VERTEX vert) {
-	quad(r, [&] (v2 p) {	vert(												v3(p,r)); });
-	quad(r, [&] (v2 p) {	vert(rotate3_Z(deg(180)) *	rotate3_X(deg(180)) *	v3(p,r)); });
-	quad(r, [&] (v2 p) {	vert(rotate3_X(deg(90)) *	rotate3_Y(deg(90)) *	v3(p,r)); });
-	quad(r, [&] (v2 p) {	vert(rotate3_X(deg(90)) *	rotate3_Y(deg(-90)) *	v3(p,r)); });
-	quad(r, [&] (v2 p) {	vert(rotate3_Y(deg(180)) *	rotate3_X(deg(-90)) *	v3(p,r)); });
-	quad(r, [&] (v2 p) {	vert(						rotate3_X(deg(90)) *	v3(p,r)); });
-}
 
 int main () {
 	
@@ -169,17 +139,19 @@ int main () {
 
 			frame_time_running_avg = lerp(frame_time_running_avg, dt, frame_time_running_avg_alpha);
 
-			ImGui::Text("dt: %6.2f ms, fps: %6.2f", frame_time_running_avg * 1000, 1.0f / frame_time_running_avg);
+			imgui::Text("dt: %6.2f ms, fps: %6.2f", frame_time_running_avg * 1000, 1.0f / frame_time_running_avg);
 		}
 
 		set_shared_uniform("common", "screen_size", (v2)inp.wnd_size_px);
 		set_shared_uniform("common", "mcursor_pos", inp.mouse_cursor_pos_screen_buttom_up_pixel_center());
 
-		set_shared_uniform("common", "cubemap_gl_ori_to_z_up", rotate3_X(deg(90)));
-		set_shared_uniform("common", "cubemap_z_up_to_gl_ori", rotate3_X(deg(-90)));
+		// OpenGL debuggers like nsight consider y to be the up/down axis, so i store my skyboxes that way so they get displayed correctly in the debugger
+		//  but since i use a z-up convention i convert between them
+		set_shared_uniform("common", "cubemap_gl_ori_to_z_up", rotate3_X(-deg(90)));
+		set_shared_uniform("common", "cubemap_z_up_to_gl_ori", rotate3_X(+deg(90)));
 
 		static bool draw_wireframe = false;
-		ImGui::Checkbox("draw_wireframe", &draw_wireframe);
+		imgui::Checkbox("draw_wireframe", &draw_wireframe);
 		if (inp.buttons['P'].went_down)
 			draw_wireframe = !draw_wireframe;
 
@@ -196,14 +168,11 @@ int main () {
 
 		m4	cam_to_clip = calc_perspective_matrix(cam.vfov, cam.clip_near, cam.clip_far, (flt)inp.wnd_size_px.x / (flt)inp.wnd_size_px.y);
 		
-		set_shared_uniform("_3d_view", "world_to_cam", world_to_cam.m4());
-		set_shared_uniform("_3d_view", "cam_to_world", cam_to_world.m4());
-		set_shared_uniform("_3d_view", "cam_to_clip", cam_to_clip);
+		set_shared_uniform("cam", "world_to_cam", world_to_cam.m4());
+		set_shared_uniform("cam", "cam_to_world", cam_to_world.m4());
+		set_shared_uniform("cam", "cam_to_clip", cam_to_clip);
 		
-		// create a skybox via shader
-		iv2 cubemap_res = 128;
-
-		static int selected_skybox = 5;
+		static int selected_skybox = 1 ? 0 : 6;
 		static cstr skyboxes[] = {
 			"generated skybox",
 			"assets/ely_nevada/nevada_%s.tga",
@@ -214,24 +183,25 @@ int main () {
 			"assets/SkyboxSet1/ThickCloudsWater/ThickCloudsWater%s2048.png",
 			"assets/SkyboxSet1/TropicalSunnyDay/TropicalSunnyDay%s2048.png",
 		};
-		bool selected_skybox_changed = ImGui::Combo("skybox", &selected_skybox, skyboxes, ARRLEN(skyboxes));
+		static bool selected_skybox_changed = true;
+		selected_skybox_changed = imgui::Combo("skybox", &selected_skybox, skyboxes, ARRLEN(skyboxes)) || selected_skybox_changed;
 
-		v3 skyboxes_dir_to_sun[] = {
-			0,
-			rotate3_Z(deg(  8)) * rotate3_X(deg( 32)) * v3(0,1,0),
-			rotate3_Z(deg( 53)) * rotate3_X(deg( 41)) * v3(0,1,0),
-			rotate3_Z(deg(-89)) * rotate3_X(deg( 12)) * v3(0,1,0),
-			rotate3_Z(deg( 70)) * rotate3_X(deg( 17)) * v3(0,1,0),
-			rotate3_Z(deg( 65)) * rotate3_X(deg(  3)) * v3(0,1,0),
-			rotate3_Z(deg( 34)) * rotate3_X(deg(  6)) * v3(0,1,0),
-			rotate3_Z(deg(-20)) * rotate3_X(deg( 19)) * v3(0,1,0),
+		v3 skyboxes_dir_to_sun_skybox[] = {
+			rotate3_Z(deg(  85)) * rotate3_X(deg( 30)) * v3(0,1,0),
+			rotate3_Z(deg(  98)) * rotate3_X(deg( 32)) * v3(0,1,0),
+			rotate3_Z(deg(-127)) * rotate3_X(deg( 41)) * v3(0,1,0),
+			rotate3_Z(deg(  91)) * rotate3_X(deg( 12)) * v3(0,1,0),
+			rotate3_Z(deg(-110)) * rotate3_X(deg( 17)) * v3(0,1,0),
+			rotate3_Z(deg(-115)) * rotate3_X(deg(  3)) * v3(0,1,0),
+			rotate3_Z(deg(-146)) * rotate3_X(deg(  6)) * v3(0,1,0),
+			rotate3_Z(deg( 160)) * rotate3_X(deg( 19)) * v3(0,1,0),
 		};
 
 		static struct {
 			srgb8	col;
 			flt		intensity;
 		} skyboxes_sun_col[] = {
-			{ srgb8(0), 0 },
+			{ srgb8(255,247,207), 0.50f },
 			{ srgb8(255,234,226), 6.00f },
 			{ srgb8(248,233,232), 0.31f },
 			{ srgb8(216,207,207), 0.14f },
@@ -242,22 +212,23 @@ int main () {
 		};
 
 		static flt rotate_skybox = 0;
-		ImGui::SliderAngle("rotate_skybox", &rotate_skybox, -180, +180);
+		imgui::SliderAngle("rotate_skybox", &rotate_skybox, +180, -180);
 		
-		m3 world_to_skybox = rotate3_Z(rotate_skybox);
-		m3 skybox_to_world = rotate3_Z(-rotate_skybox);
+		m3 world_to_skybox = rotate3_Z(-rotate_skybox);
+		m3 skybox_to_world = rotate3_Z(rotate_skybox);
 		
 		set_shared_uniform("common", "world_to_skybox", world_to_skybox);
 
-		v3 dir_to_sun_world = skybox_to_world * skyboxes_dir_to_sun[selected_skybox];
+		v3 dir_to_sun_world = skybox_to_world * skyboxes_dir_to_sun_skybox[selected_skybox];
 		lrgb skybox_light_radiance = skyboxes_sun_col[selected_skybox].col.to_lrgb() * skyboxes_sun_col[selected_skybox].intensity;
 
 		set_shared_uniform("common", "skybox_light_dir_world", dir_to_sun_world);
 		set_shared_uniform("common", "skybox_light_radiance", skybox_light_radiance);
 
 		static flt ambient_light = 0.1f;
-		ImGui::SliderFloat("ambient_light", &ambient_light, 0,1);
+		imgui::SliderFloat("ambient_light", &ambient_light, 0,1);
 		set_shared_uniform("common", "ambient_light", v3(ambient_light));
+
 
 		TextureCube* skybox;
 		if (selected_skybox > 0) {
@@ -269,63 +240,36 @@ int main () {
 				prev_selected_skybox = skyboxes[selected_skybox];
 			}
 
-			skybox = get_multifile_cubemap(skyboxes[selected_skybox], { PF_SRGB8, USE_MIPMAPS },
-					selected_skybox != 1 ?		 std::vector<std::string>{"Right","Left","Down","Up","Back","Front"} :	std::vector<std::string>{"rt","lf","dn","up","bk","ft"},
-					selected_skybox != 1 ?		 std::vector<int>{0,0,ROT_180,ROT_180,0,0} :							std::vector<int>{0,0,ROT_90,ROT_90,0,0});
+			skybox = get_multifile_cubemap(skyboxes[selected_skybox], { PF_SRGB8 },
+					selected_skybox != 1 ?	std::vector<std::string>{"Left","Right","Down","Up","Front","Back"} :	std::vector<std::string>{"ft","bk","dn","up","rt","lf"});
 
 		} else {
+			// create a skybox via shader
+			iv2 cubemap_res = 256;
+
 			static auto _skybox = alloc_cube_texture(cubemap_res, { PF_LRGBF, NO_MIPMAPS });
 			skybox = &_skybox;
 
-			static auto fbo = draw_to_texture(_skybox, cubemap_res);
-
-			glViewport(0,0, cubemap_res.x,cubemap_res.y);
-
-			glDisable(GL_BLEND);
-			glDisable(GL_DEPTH_TEST);
-			glDisable(GL_CULL_FACE);
-			glDisable(GL_SCISSOR_TEST);
-			
 			auto s = use_shader("shaders/skybox_cubemap_gen");
 			assert(s);
 
+			set_uniform(s, "dir_to_sun_skybox", skyboxes_dir_to_sun_skybox[0]);
 
-			struct Vertex {
-				v3		pos_world;
-			};
-			const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
-				{ "pos_world",		FV3,	(int)offsetof(Vertex, pos_world) },
-			}};
-
-			static std::vector<Vertex> cube;
-			if (cube.size() == 0)
-				generate_cube(1, [] (v3 p) { cube.push_back({p}); });
-
-			static auto vbo = stream_vertex_data(cube.data(), (int)cube.size() * layout.vertex_size);
-		
-			bind_vertex_data(vbo, layout, *s);
-			
-			static m3 faces_world_to_cam[6] = {
-				rotate3_Z(deg(180)) *	rotate3_Y(deg( 90)),	// pos x
-				rotate3_Z(deg(180)) *	rotate3_Y(deg(-90)),	// neg x
-										rotate3_X(deg(-90)),	// pos y
-										rotate3_X(deg( 90)),	// neg y
-										rotate3_X(deg(180)),	// pos z
-				rotate3_Z(deg(180)),							// neg z
-			};
-
-			m4 cam_to_clip = calc_perspective_matrix(deg(90), 1.0f/16, 1024, 1);
-			set_uniform(s, "cam_to_clip", cam_to_clip);
-
-			for (auto face=0; face<6; ++face) {
-				fbo.bind(face);
-
-				set_uniform(s, "world_to_cam", faces_world_to_cam[face]);
-
-				draw_triangles(*s, 0, (int)cube.size());
-			}
-		
+			draw_entire_cubemap(s, skybox, cubemap_res);
 		}
+
+		static iv2 irradiance_res = 32;
+		static TextureCube irradiance = alloc_cube_texture(irradiance_res, { PF_LRGBF, NO_MIPMAPS });
+		if (0 && selected_skybox_changed) {
+			
+			auto s = use_shader("shaders/pbr_irradiance_convolve");
+			assert(s);
+
+			bind_texture(s, "source_radiance", 0, *skybox);
+
+			draw_entire_cubemap(s, &irradiance, irradiance_res);
+		}
+		selected_skybox_changed = false;
 
 		auto draw_scene = [&] (Texture2D* prev_framebuffer) {
 			
@@ -357,7 +301,7 @@ int main () {
 
 				bind_vertex_data(vbo, layout, *s);
 
-				bind_texture(s, "skybox", 0, *skybox);
+				bind_texture(s, "skybox", 4, *skybox);
 
 				draw_triangles(*s, 0, (int)cube.size());
 			}
@@ -369,7 +313,9 @@ int main () {
 			glEnable(GL_CULL_FACE);
 			glDisable(GL_SCISSOR_TEST);
 
-			if (1) {
+			static bool draw_cerberus = true;
+			imgui::Checkbox("draw_cerberus", &draw_cerberus);
+			if (draw_cerberus) {
 				auto cerberus = mesh_manager.get_mesh("assets/Cerberus_by_Andrew_Maximov/Cerberus_LP.FBX");
 				
 				auto s = use_shader(shad_default_3d);
@@ -380,17 +326,19 @@ int main () {
 
 				set_uniform(s, "model_to_world", translate4(v3(+5,0,0)) * scale4(1.0f / 50));
 
-				bind_texture(s, "skybox", 0, *skybox);
-
 				set_material_albedo(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_A.tga", { PF_SRGB8 }));
 				set_material_metallic(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_M.tga", { PF_LRGB8 }));
 				set_material_roughness(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_R.tga", { PF_LRGB8 }));
 				set_material_normal(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
 
+				bind_texture(s, "skybox", 4, *skybox);
+
 				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
 			}
 
-			if (1) {
+			static bool draw_terrain = true;
+			imgui::Checkbox("draw_terrain", &draw_terrain);
+			if (draw_terrain) {
 				auto mesh = mesh_manager.get_mesh("assets/terrain.fbx");
 
 				auto s = use_shader(shad_default_3d);
@@ -401,12 +349,12 @@ int main () {
 
 				set_uniform(s, "model_to_world", translate4(v3(0,0,0)) * scale4(500));
 
-				bind_texture(s, "skybox", 0, *skybox);
-
 				set_material_albedo(s,		lwhite);
 				set_material_metallic(s,	0);
 				set_material_roughness(s,	0.8f);
 				set_material_normal_identity(s);
+
+				bind_texture(s, "skybox", 4, *skybox);
 
 				draw_triangles(*s, 0, (int)mesh->vbo_data.size());
 			}
@@ -450,7 +398,7 @@ int main () {
 					int tex_select = face / 2;
 
 					Texture2D tmp;
-
+\
 					if (		tex_select == 0 ) {
 						srgba8 pixels[16][16];
 						for (int y=0; y<16; ++y) {
@@ -475,6 +423,8 @@ int main () {
 					set_material_roughness(s,	0.5f);
 					set_material_normal_identity(s);
 
+					bind_texture(s, "skybox", 4, *skybox);
+
 					draw_stream_triangles(*s, quad);
 				}
 			}
@@ -482,7 +432,7 @@ int main () {
 		};
 
 		static bool render_to_framebuffer_and_use_as_texture = false;
-		ImGui::Checkbox("render_to_framebuffer_and_use_as_texture", &render_to_framebuffer_and_use_as_texture);
+		imgui::Checkbox("render_to_framebuffer_and_use_as_texture", &render_to_framebuffer_and_use_as_texture);
 
 		if (!render_to_framebuffer_and_use_as_texture) {
 			
@@ -508,7 +458,7 @@ int main () {
 				if (any(inp.wnd_size_px != _framebuffer->size)) {
 					_framebuffer->size = inp.wnd_size_px;
 					_framebuffer->tex = alloc_texture(_framebuffer->size, { PF_LRGBF, NO_MIPMAPS });
-					_framebuffer->fbo = draw_to_texture(_framebuffer->tex, _framebuffer->size);
+					_framebuffer->fbo = create_fbo(_framebuffer->tex, _framebuffer->size);
 				}
 
 				draw_to_texture(_framebuffer->fbo, inp.wnd_size_px);

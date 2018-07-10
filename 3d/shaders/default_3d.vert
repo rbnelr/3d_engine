@@ -12,15 +12,15 @@ out		vec4	vs_tangent_cam;
 out		vec2	vs_uv;
 out		vec4	vs_col;
 
-uniform	mat4	_3d_view_cam_to_clip;
-uniform	mat4	_3d_view_world_to_cam;
+uniform	mat4	cam_cam_to_clip;
+uniform	mat4	cam_world_to_cam;
 
 uniform mat4	model_to_world;
 
 void vert () {
-	mat4 model_to_cam = _3d_view_world_to_cam * model_to_world;
+	mat4 model_to_cam = cam_world_to_cam * model_to_world;
 
-	gl_Position =		_3d_view_cam_to_clip * model_to_cam * vec4(pos_model, 1);
+	gl_Position =		cam_cam_to_clip * model_to_cam * vec4(pos_model, 1);
 	
 	vs_pos_cam =		(model_to_cam * vec4(pos_model, 1)).xyz;
 	vs_normal_cam =		      mat3(model_to_cam) * normal_model;

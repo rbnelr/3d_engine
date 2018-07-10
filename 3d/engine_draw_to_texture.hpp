@@ -75,15 +75,20 @@ public:
 		return fbo;
 	}
 
-	void bind (int face) {
+	void draw_to_face (int face, iv2 cubemap_size) {
+		glViewport(0,0, cubemap_size.x,cubemap_size.y);
+		glScissor(0,0, cubemap_size.x,cubemap_size.y);
+
+		set_shared_uniform("common", "viewport_size", (v2)cubemap_size);
+
 		faces[face].bind();
 	}
 };
 
-FBO draw_to_texture (Texture2D const& color_target, iv2 size_px) {
+FBO create_fbo (Texture2D const& color_target, iv2 size_px) {
 	return FBO::create(color_target, size_px);
 }
-FBO_Cube draw_to_texture (TextureCube const& color_target, iv2 size_px) {
+FBO_Cube create_fbo (TextureCube const& color_target, iv2 size_px) {
 	return FBO_Cube::create(color_target, size_px);
 }
 
@@ -103,6 +108,51 @@ void draw_to_texture (FBO const& fbo, iv2 texture_size) {
 	glScissor(0,0, texture_size.x,texture_size.y);
 
 	set_shared_uniform("common", "viewport_size", (v2)texture_size);
+}
+
+//
+void draw_entire_cubemap (Shader* shad, TextureCube* cubemap, iv2 cubemap_res) {
+	static auto fbo = create_fbo(*cubemap, cubemap_res);
+
+	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_SCISSOR_TEST);
+
+	struct Vertex {
+		v3		pos_skybox;
+	};
+	const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
+		{ "pos_skybox",		FV3,	(int)offsetof(Vertex, pos_skybox) },
+	}};
+
+	static std::vector<Vertex> cube;
+	if (cube.size() == 0)
+		generate_cube(1, [] (v3 p) { cube.push_back({p}); });
+
+	static auto vbo = stream_vertex_data(cube.data(), (int)cube.size() * layout.vertex_size);
+
+	bind_vertex_data(vbo, layout, *shad);
+
+	static m3 faces_world_to_cam[6] = {
+		rotate3_X(deg(-90)) *	rotate3_Z(deg(+90)),	// pos x , our right
+		rotate3_X(deg(-90)) *	rotate3_Z(deg(-90)),	// neg x , our left
+		m3::ident(),									// pos y , our down
+		rotate3_X(deg(180)),							// neg y , our up
+		rotate3_X(deg(-90)),							// pos z , our front
+		rotate3_X(deg(-90)) *	rotate3_Z(deg(180)),	// neg z , our back
+	};
+
+	m4 cam_to_clip = calc_perspective_matrix(deg(90), 1.0f/16, 1024, 1);
+	set_uniform(shad, "cam_to_clip", cam_to_clip);
+
+	for (auto face=0; face<6; ++face) {
+		fbo.draw_to_face(face, cubemap_res);
+
+		set_uniform(shad, "skybox_to_cam", faces_world_to_cam[face]);
+
+		draw_triangles(*shad, 0, (int)cube.size());
+	}
 }
 
 //

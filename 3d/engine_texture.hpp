@@ -227,6 +227,8 @@ public:
 		} else {
 			assert(not_implemented);
 		}
+
+		glBindTexture(target, 0);
 	}
 	void reupload_mipmap_cube (std::vector<void const*> face_pixels, iv2 size_px, int mip, Options o) {
 		glBindTexture(GL_TEXTURE_CUBE_MAP, handle);
@@ -384,7 +386,7 @@ enum _90_deg_rotation {
 	ROT_270,
 };
 
-TextureCube upload_cube_texture_from_multifile (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}, iv2* out_size_px=nullptr) {
+TextureCube upload_cube_texture_from_multifile (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, iv2* out_size_px=nullptr) {
 	
 	auto tex = TextureCube::generate(o);
 
@@ -399,27 +401,6 @@ TextureCube upload_cube_texture_from_multifile (std::string const& name_format, 
 		}
 
 		prev_size_px = size_px;
-
-		switch (rotation[face]) {
-			case ROT_0:		break;
-			case ROT_180:	inplace_rotate_180(pixels, sizeof_pixel, size_px);	break;
-
-			case ROT_90:	
-			case ROT_270: {
-				u8* unrotated_img = pixels;
-				pixels = (u8*)malloc(size_px.y * size_px.x * sizeof_pixel);
-
-				if (rotation[face] == ROT_90) {
-					copy_rotate_90(unrotated_img, pixels, sizeof_pixel, size_px);
-				} else {
-					//copy_rotate_270(unrotated_img, pixels, sizeof_pixel, size_px);
-				}
-
-				free(unrotated_img);
-			} break;
-
-			default: assert(not_implemented);
-		}
 
 		tex.reupload_mipmap_cube_face(pixels, size_px, face, 0, o);
 
@@ -478,11 +459,11 @@ struct Texture_Manager {
 		return &tex->tex2d;
 	}
 	
-	TextureCube* get_multifile_cubemap (std::string const& name, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
+	TextureCube* get_multifile_cubemap (std::string const& name, Texture::Options o, std::vector<std::string> const& face_names) {
 		auto tex = find_texture(name);
 		if (!tex) {
 			iv2 size_px;
-			auto tmp = upload_cube_texture_from_multifile(name, o, face_names, rotation, &size_px);
+			auto tmp = upload_cube_texture_from_multifile(name, o, face_names, &size_px);
 			tex = textures.emplace(name, make_unique<Any_Texture>(std::move(tmp), size_px, o)).first->second.get();
 		}
 
@@ -507,8 +488,8 @@ Texture2D* get_texture (std::string const& name, Texture::Options o) {
 	return texture_manager.get_texture(name, o);
 }
 
-TextureCube* get_multifile_cubemap (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
-	return texture_manager.get_multifile_cubemap(name_format, o, face_names, rotation);
+TextureCube* get_multifile_cubemap (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names) {
+	return texture_manager.get_multifile_cubemap(name_format, o, face_names);
 }
 bool evict_texture (std::string const& name) {
 	return texture_manager.evict_texture(name);

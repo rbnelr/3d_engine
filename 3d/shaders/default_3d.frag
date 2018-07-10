@@ -6,17 +6,15 @@ in		vec4	vs_tangent_cam;
 in		vec2	vs_uv;
 in		vec4	vs_col;
 
-uniform	mat4	_3d_view_world_to_cam;
-uniform	mat4	_3d_view_cam_to_world;
-
-uniform mat3	common_cubemap_gl_ori_to_z_up;
-uniform	mat3	common_world_to_skybox;
+uniform	mat4	cam_world_to_cam;
+uniform	mat4	cam_cam_to_world;
 
 uniform vec3	common_skybox_light_dir_world;
 uniform	vec3	common_skybox_light_radiance;
 
 uniform vec3	common_ambient_light;
 
+// material
 uniform sampler2D	albedo_tex;
 uniform vec4		albedo_mult;
 uniform vec4		albedo_offs;
@@ -30,6 +28,11 @@ uniform float		roughness_mult;
 uniform float		roughness_offs;
 
 uniform sampler2D	normal_tex;
+
+//
+uniform	mat3 common_world_to_skybox;
+uniform	mat3 common_cubemap_gl_ori_to_z_up;
+uniform	mat3 common_cubemap_z_up_to_gl_ori;
 
 uniform samplerCube skybox;
 
@@ -132,16 +135,18 @@ vec4 frag () {
 	float alpha = albedo_sample.a;
 	
 	vec3 frag_to_cam =		normalize(-vs_pos_cam);
-	vec3 frag_to_light =	normalize(mat3(_3d_view_world_to_cam) * common_skybox_light_dir_world);
+	vec3 frag_to_light =	normalize(mat3(cam_world_to_cam) * common_skybox_light_dir_world);
 	vec3 vertex_normal =	normalize(vs_normal_cam);
 	vec4 tangent = vec4(	normalize(vs_tangent_cam.xyz), vs_tangent_cam.w );
 	
 	vec3 normal = normalmapping(normal_sample, vertex_normal, tangent);
 
-	vec3 Lo =  cook_torrance_specular_BRDF(albedo, metallic_sample, roughness_sample, frag_to_light, frag_to_cam, normal)
-				+lighting_ambient(albedo, common_ambient_light);
+	vec3 radiance =  cook_torrance_specular_BRDF(albedo, metallic_sample, roughness_sample, frag_to_light, frag_to_cam, normal)
+					 +lighting_ambient(albedo, common_ambient_light);
 	
-	vec3 color = Lo / (Lo + vec3(1.0)); // Reinhard tonemapping
+	//radiance += texture(skybox, common_cubemap_z_up_to_gl_ori * common_world_to_skybox * mat3(cam_cam_to_world) * reflect(-frag_to_cam, normal)).rgb;
+	
+	vec3 color = radiance / (radiance + vec3(1.0)); // Reinhard tonemapping
 
 	return vec4(color, alpha);
 }

@@ -154,11 +154,17 @@ void bind_vertex_data (VBO const& vbo, Data_Vertex_Layout const& vertex_layout, 
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo.get_handle());
 
+	static int max_enabled_attribute_loc = 0;
+	for (int loc=0; loc <= max_enabled_attribute_loc; ++loc)
+		glDisableVertexAttribArray(loc);
+
 	for (auto& attr : vertex_layout.attributes) {
 
 		auto loc = glGetAttribLocation(shad.get_prog_handle(), attr.name.c_str());
 		if (loc < 0)
 			continue;
+
+		max_enabled_attribute_loc = max(max_enabled_attribute_loc, loc);
 
 		glEnableVertexAttribArray(loc);
 
@@ -225,6 +231,39 @@ void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, 
 }
 
 constexpr v2 quad_verts[] = { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) };
+
+template <typename VERTEX> void quad (flt r, VERTEX vert) {
+	for (auto p : quad_verts)
+		vert((p * 2 - 1) * r);
+}
+template <typename VERTEX> void generate_cube (flt r, VERTEX vert) {
+	quad(r, [&] (v2 p) {	vert(												v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_Z(deg(180)) *	rotate3_X(deg(180)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_X(deg(90)) *	rotate3_Y(deg(90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_X(deg(90)) *	rotate3_Y(deg(-90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_Y(deg(180)) *	rotate3_X(deg(-90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(						rotate3_X(deg(90)) *	v3(p,r)); });
+}
+
+m4 calc_perspective_matrix (flt vfov, flt clip_near, flt clip_far, flt aspect_w_over_h) {
+
+	v2 frustrum_scale = tan(vfov * 0.5f);
+	frustrum_scale.x *= aspect_w_over_h;
+
+	v2 frustrum_scale_inv = 1 / frustrum_scale;
+
+	f32 temp = clip_near -clip_far;
+
+	f32 x = frustrum_scale_inv.x;
+	f32 y = frustrum_scale_inv.y;
+	f32 a = (clip_far +clip_near) / temp;
+	f32 b = (2 * clip_far * clip_near) / temp;
+
+	return m4::rows(	x, 0, 0, 0,
+						0, y, 0, 0,
+						0, 0, a, b,
+						0, 0,-1, 0 );
+}
 
 //
 }
