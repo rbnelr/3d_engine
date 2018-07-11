@@ -98,7 +98,7 @@ float geometry_schlick_GGX (float NV, float roughness) {
 float geometry_smith (float NV, float NL, float roughness) {
     float ggx2  = geometry_schlick_GGX(NV, roughness);
     float ggx1  = geometry_schlick_GGX(NL, roughness);
-	
+
     return ggx1 * ggx2;
 }
 

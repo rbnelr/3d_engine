@@ -27,7 +27,7 @@ class Directory_Watcher {
 
 public:
 	
-	Directory_Watcher (cstr directory_path) {
+	Directory_Watcher (cstr directory_path) { // must end in slash, since is is prepended in front of the filenames, so that changed_files contains "directory_path/subdir/filename"
 		this->directory_path = directory_path;
 
 		dir = CreateFileA(directory_path, FILE_LIST_DIRECTORY, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OVERLAPPED, NULL);
@@ -78,7 +78,7 @@ public:
 					break; // fail, do not continue reloading shaders
 
 				assert(required_size >= 1); // required_size includes the null terminator
-				filepath.assign(required_size, '#');
+				filepath.resize(required_size);
 
 				auto actual_size = WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, info->FileName, -1, &filepath[0], (int)filepath.size(), NULL, NULL);
 				if (actual_size != (int)filepath.size())
@@ -111,11 +111,15 @@ public:
 						if (filepath.find_first_of('~') != std::string::npos) { // string contains a tilde '~' character
 							// tilde characters are often used for temporary files, for ex. MSVC writes source code changes by creating a temp file with a tilde in it's name and then swaps the old and new file by renaming them
 							//  so filter those files here since the user of Directory_Watcher _probably_ does not want those files
-						} else if ( std::find(changed_files->begin(), changed_files->end(), filepath) != changed_files->end() ) {
-							// a change for this file was already reported (but it could be a different info->Action)
-							//  do not report a file as changed twice
 						} else {
-							changed_files->push_back( std::move(filepath) );
+							filepath.insert(0, directory_path);
+							
+							if ( std::find(changed_files->begin(), changed_files->end(), filepath) != changed_files->end() ) {
+								// a change for this file was already reported (but it could be a different info->Action)
+								//  do not report a file as changed twice
+							} else {
+								changed_files->push_back( std::move(filepath) );
+							}
 						}
 					} break;
 
