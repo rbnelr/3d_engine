@@ -12,8 +12,6 @@ uniform	mat4	cam_cam_to_world;
 uniform vec3	common_skybox_light_dir_world;
 uniform	vec3	common_skybox_light_radiance;
 
-uniform vec3	common_ambient_light;
-
 // material
 uniform sampler2D	albedo_tex;
 uniform vec4		albedo_mult;
@@ -35,6 +33,7 @@ uniform	mat3 common_cubemap_gl_ori_to_z_up;
 uniform	mat3 common_cubemap_z_up_to_gl_ori;
 
 uniform samplerCube skybox;
+uniform samplerCube irradiance;
 
 vec3 normalmapping (vec3 normal_map_val, vec3 vertex_normal_cam, vec4 tangent_cam) {
 	vec3 normal_tangent = normal_map_val * 2 -1;
@@ -58,9 +57,19 @@ vec3 normalmapping (vec3 normal_map_val, vec3 vertex_normal_cam, vec4 tangent_ca
 vec3 fresnel_schlick (float cos_theta, vec3 F0) {
     return F0 +(1.0 -F0) * pow(1.0 -cos_theta, 5.0);
 }
-vec3 fresnel (vec3 frag_to_light, float VH, vec3 albedo, float metallic) {
+vec3 fresnel (float VH, vec3 albedo, float metallic) {
 	vec3 F0 = mix(vec3(0.04), albedo, metallic);
 	vec3 F  = fresnel_schlick(VH, F0);
+
+	return F;
+}
+
+vec3 fresnel_schlick_roughness (float cos_theta, vec3 F0, float roughness) {
+    return F0 +(max(vec3(1.0 -roughness), F0) -F0) * pow(1.0 -cos_theta, 5.0);
+}
+vec3 fresnel_roughness (float VH, vec3 albedo, float metallic, float roughness) {
+	vec3 F0 = mix(vec3(0.04), albedo, metallic);
+	vec3 F  = fresnel_schlick_roughness(VH, F0, roughness);
 
 	return F;
 }
@@ -93,7 +102,7 @@ float geometry_smith (float NV, float NL, float roughness) {
     return ggx1 * ggx2;
 }
 
-vec3 cook_torrance_specular_BRDF (vec3 albedo, float metallic, float roughness, vec3 frag_to_light, vec3 frag_to_cam, vec3 normal) { // all in cam space
+vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, vec3 frag_to_light, vec3 frag_to_cam, vec3 normal) { // all in cam space
 	vec3 N = normalize(normal);
 	vec3 V = normalize(frag_to_cam);
 	vec3 L = normalize(frag_to_light);
@@ -104,24 +113,36 @@ vec3 cook_torrance_specular_BRDF (vec3 albedo, float metallic, float roughness, 
 	float VH = max(dot(H, V), 0.0);
 	float NH = max(dot(H, N), 0.0);
 
-	vec3 F = fresnel(frag_to_light, VH, albedo, metallic);
-	vec3 k_diffuse = 1 -F;
+	vec3 light_out = vec3(0);
 
-	k_diffuse *= 1 -metallic;
+	{ // analytical light
+		vec3 F = fresnel(VH, albedo, metallic);
+		vec3 k_diffuse = 1 -F;
+
+		k_diffuse *= 1 -metallic;
 	
-	float NDF = distribution_GGX(NH, roughness);       
-	float G   = geometry_smith(NV, NL, roughness);
+		float NDF = distribution_GGX(NH, roughness);       
+		float G   = geometry_smith(NV, NL, roughness);
 
-	vec3 numerator    = NDF * G * F;
-	float denominator = 4.0 * NV * NL;
-	vec3 specular     = numerator / max(denominator, 0.001);  
+		vec3 numerator    = NDF * G * F;
+		float denominator = 4.0 * NV * NL;
+		vec3 specular     = numerator / max(denominator, 0.001);  
 
-	vec3 lighting = (k_diffuse * albedo / PI + specular) * common_skybox_light_radiance * NL;
+		light_out += (k_diffuse * albedo / PI + specular) * common_skybox_light_radiance * NL;
+	}
+	{ // ibl diffuse
+		vec3 F = fresnel_roughness(NV, albedo, metallic, roughness);
 
-	return lighting;
-}
-vec3 lighting_ambient (vec3 albedo, vec3 ambient_light) { // all in cam space
-	return ambient_light * albedo;
+		vec3 k_diffuse = 1 -F;
+
+		k_diffuse *= 1 -metallic;
+		
+		vec3 irradiance_sample = texture(irradiance, common_cubemap_z_up_to_gl_ori * common_world_to_skybox * mat3(cam_cam_to_world) * N).rgb;
+
+		light_out += k_diffuse * irradiance_sample * albedo;
+	}
+
+	return light_out;
 }
 
 vec4 frag () {
@@ -141,8 +162,7 @@ vec4 frag () {
 	
 	vec3 normal = normalmapping(normal_sample, vertex_normal, tangent);
 
-	vec3 radiance =  cook_torrance_specular_BRDF(albedo, metallic_sample, roughness_sample, frag_to_light, frag_to_cam, normal)
-					 +lighting_ambient(albedo, common_ambient_light);
+	vec3 radiance =  cook_torrance_BRDF(albedo, metallic_sample, roughness_sample, frag_to_light, frag_to_cam, normal);
 	
 	//radiance += texture(skybox, common_cubemap_z_up_to_gl_ori * common_world_to_skybox * mat3(cam_cam_to_world) * reflect(-frag_to_cam, normal)).rgb;
 	

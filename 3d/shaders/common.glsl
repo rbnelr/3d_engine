@@ -1,6 +1,7 @@
 
 // common uniforms
 uniform	vec2	common_viewport_size;
+uniform	vec2	common_mcursor_pos;
 
 // srgb conversions
 vec3 to_srgb (vec3 linear) {

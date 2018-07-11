@@ -3,6 +3,8 @@
 //$predefined_macros
 #define WIREFRAME 1
 
+$include "common.glsl"
+
 vec4 frag ();
 
 // Debug output
@@ -14,6 +16,12 @@ void DEBUG (float v) {	dbg_output_set = true; frag_col = vec4(v,v,v,1); }
 void DEBUG (vec2 v) {	dbg_output_set = true; frag_col = vec4(v,0,1); }
 void DEBUG (vec3 v) {	dbg_output_set = true; frag_col = vec4(v,1); }
 void DEBUG (vec4 v) {	dbg_output_set = true; frag_col = v; }
+
+bool dbg_left () {
+	if (gl_FragCoord.x == common_mcursor_pos.x)
+		DEBUG(0);
+	return gl_FragCoord.x < common_mcursor_pos.x;
+}
 
 #if WIREFRAME
 uniform bool	wireframe_enable = false;
@@ -28,8 +36,6 @@ float wireframe_edge_factor () {
 	return min(min(a3.x, a3.y), a3.z);
 }
 #endif
-
-$include "common.glsl"
 
 void main () {
 	

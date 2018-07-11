@@ -13,6 +13,8 @@ TODO:
 
 implement pbr ibl
 
+common textures like common uniforms (what do do with texture units?)
+
 implement disk caching of ibl preprocessing
 
 implement texture streaming

@@ -172,7 +172,7 @@ int main () {
 		set_shared_uniform("cam", "cam_to_world", cam_to_world.m4());
 		set_shared_uniform("cam", "cam_to_clip", cam_to_clip);
 		
-		static int selected_skybox = 1 ? 0 : 6;
+		static int selected_skybox = 7;
 		static cstr skyboxes[] = {
 			"generated skybox",
 			"assets/ely_nevada/nevada_%s.tga",
@@ -182,6 +182,9 @@ int main () {
 			"assets/SkyboxSet1/SunSet/SunSet%s2048.png",
 			"assets/SkyboxSet1/ThickCloudsWater/ThickCloudsWater%s2048.png",
 			"assets/SkyboxSet1/TropicalSunnyDay/TropicalSunnyDay%s2048.png",
+
+			"assets/sIBL_Archive/Arches_E_PineTree/Arches_E_PineTree_3k.hdr",
+			"assets/sIBL_Archive/Chiricahua_Plaza/GravelPlaza_REF.hdr",
 		};
 		static bool selected_skybox_changed = true;
 		selected_skybox_changed = imgui::Combo("skybox", &selected_skybox, skyboxes, ARRLEN(skyboxes)) || selected_skybox_changed;
@@ -225,13 +228,29 @@ int main () {
 		set_shared_uniform("common", "skybox_light_dir_world", dir_to_sun_world);
 		set_shared_uniform("common", "skybox_light_radiance", skybox_light_radiance);
 
-		static flt ambient_light = 0.1f;
-		imgui::SliderFloat("ambient_light", &ambient_light, 0,1);
-		set_shared_uniform("common", "ambient_light", v3(ambient_light));
-
-
+		iv2 skybox_res = 512;
+		
 		TextureCube* skybox;
-		if (selected_skybox > 0) {
+		if (std::string( skyboxes[selected_skybox] ).find("sIBL_Archive/") != std::string::npos) {
+			
+			auto equirectangular_hdr = get_texture(skyboxes[selected_skybox], { PF_LRGBF });
+			
+			static auto _skybox = alloc_cube_texture(skybox_res, { PF_LRGBF, NO_MIPMAPS });
+			static auto fbo = create_fbo(_skybox, skybox_res);
+
+			if (selected_skybox_changed) {
+				auto s = use_shader("shaders/equirectangular_to_cubemap");
+				assert(s);
+
+				//
+				bind_texture(s, "equirectangular", 0, *equirectangular_hdr);
+
+				draw_entire_cubemap(s, &fbo, skybox_res);
+			}
+
+			skybox = &_skybox;
+
+		} else if (selected_skybox > 0) {
 			
 			static cstr prev_selected_skybox = skyboxes[selected_skybox];
 			if (selected_skybox_changed) {
@@ -245,40 +264,50 @@ int main () {
 
 		} else {
 			// create a skybox via shader
-			iv2 cubemap_res = 256;
-
-			static auto _skybox = alloc_cube_texture(cubemap_res, { PF_LRGBF, NO_MIPMAPS });
+			
+			static auto _skybox = alloc_cube_texture(skybox_res, { PF_LRGBF, NO_MIPMAPS });
+			static auto fbo = create_fbo(_skybox, skybox_res);
+			
 			skybox = &_skybox;
 
-			auto s = use_shader("shaders/skybox_cubemap_gen");
-			assert(s);
+			if (selected_skybox_changed) {
+				auto s = use_shader("shaders/skybox_cubemap_gen");
+				assert(s);
 
-			//
-			set_uniform(s, "dir_to_sun", skyboxes_dir_to_sun_skybox[0]);
+				//
+				set_uniform(s, "dir_to_sun", skyboxes_dir_to_sun_skybox[0]);
 
-			draw_entire_cubemap(s, skybox, cubemap_res);
+				draw_entire_cubemap(s, &fbo, skybox_res);
+			}
 		}
 
 		static iv2 irradiance_res = 32;
 		static TextureCube irradiance = alloc_cube_texture(irradiance_res, { PF_LRGBF, NO_MIPMAPS });
-		if (0 && selected_skybox_changed) {
-			
-			auto s = use_shader("shaders/pbr_irradiance_convolve");
-			assert(s);
+		{
+			static auto fbo = create_fbo(irradiance, irradiance_res);
 
-			bind_texture(s, "source_radiance", 0, *skybox);
+			if (selected_skybox_changed) {
+				auto s = use_shader("shaders/pbr_irradiance_convolve");
+				assert(s);
 
-			draw_entire_cubemap(s, &irradiance, irradiance_res);
+				bind_texture(s, "source_radiance", 0, *skybox);
+
+				draw_entire_cubemap(s, &fbo, irradiance_res);
+			}
 		}
 		selected_skybox_changed = false;
 
 		auto draw_scene = [&] (Texture2D* prev_framebuffer) {
 			
-			lrgb clear_color_lrgb = srgb8(30).to_lrgb();
+			if (draw_wireframe) {
+				lrgb clear_color_lrgb = srgb8(30).to_lrgb();
 
-			glClearColor(clear_color_lrgb.x,clear_color_lrgb.y,clear_color_lrgb.z,255);
-			//glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-			glClear(GL_DEPTH_BUFFER_BIT);
+				glClearColor(clear_color_lrgb.x,clear_color_lrgb.y,clear_color_lrgb.z,255);
+
+				glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+			} else {
+				glClear(GL_DEPTH_BUFFER_BIT);
+			}
 
 			glDisable(GL_DEPTH_TEST);
 			glDepthMask(GL_FALSE);
@@ -303,6 +332,7 @@ int main () {
 				bind_vertex_data(vbo, layout, *s);
 
 				bind_texture(s, "skybox", 4, *skybox);
+				bind_texture(s, "irradiance", 5, irradiance);
 
 				draw_triangles(*s, 0, (int)cube.size());
 			}
@@ -333,11 +363,98 @@ int main () {
 				set_material_normal(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
 
 				bind_texture(s, "skybox", 4, *skybox);
+				bind_texture(s, "irradiance", 5, irradiance);
 
 				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
 			}
 
-			static bool draw_terrain = true;
+			{
+				auto s = use_shader(shad_default_3d);
+				if (s) {
+
+					static std::vector<Default_Vertex_3d> sphere;
+					if (sphere.size() == 0) {
+						flt radius = 0.5f;
+						
+						auto vert = [&] (v3 p) {
+							Default_Vertex_3d v;
+							v.pos_model = p;
+							v.normal_model = normalize(p);
+							sphere.push_back(v);
+						};
+						auto quad = [&] (v3 a, v3 b, v3 c, v3 d) {
+							vert(b);
+							vert(c);
+							vert(a);
+							vert(a);
+							vert(c);
+							vert(d);
+						};
+
+						int lat_steps = 32; // latitude
+						int lon_steps = 64; // longitude
+
+						for (int lat=0; lat<lat_steps; ++lat) {
+							
+							flt lat_ang0 = (flt)(lat +0) / (flt)lat_steps;
+							flt lat_ang1 = (flt)(lat +1) / (flt)lat_steps;
+
+							m3 lat_rot0 = rotate3_Y(lat_ang0 * deg(180));
+							m3 lat_rot1 = rotate3_Y(lat_ang1 * deg(180));
+							
+							for (int lon=0; lon<lon_steps; ++lon) {
+
+								flt lon_ang0 = (flt)(lon +0) / (flt)lon_steps;
+								flt lon_ang1 = (flt)(lon +1) / (flt)lon_steps;
+
+								m3 lon_rot0 = rotate3_Z(lon_ang0 * deg(360));
+								m3 lon_rot1 = rotate3_Z(lon_ang1 * deg(360));
+
+								quad(	lon_rot0 * lat_rot0 * v3(0,0,-radius),
+										lon_rot1 * lat_rot0 * v3(0,0,-radius),
+										lon_rot1 * lat_rot1 * v3(0,0,-radius),
+										lon_rot0 * lat_rot1 * v3(0,0,-radius) );
+
+							}
+						}
+					}
+
+					static auto vbo = stream_vertex_data(sphere.data(), (int)sphere.size() * Default_Vertex_3d::layout.vertex_size);
+					use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
+
+					static v3 srgb_albedo = (v3(1.000f, 0.766f, 0.336f));
+					imgui::ColorEdit3("spheres.albedo", &srgb_albedo.x);
+
+					static int metallic_steps = 3;
+					static int roughness_steps = 7;
+					imgui::DragInt("spheres.metallic_steps", &metallic_steps, 1.0f / 25);
+					imgui::DragInt("spheres.roughness_steps", &roughness_steps, 1.0f / 25);
+
+					bind_texture(s, "skybox", 4, *skybox);
+					bind_texture(s, "irradiance", 5, irradiance);
+
+					for (int m=0; m<metallic_steps; ++m) {
+						for (int r=0; r<roughness_steps; ++r) {
+
+							hm model_to_world = translateH(v3(-5,0,0)) * rotateH_Z(deg(30)) * translateH(v3((flt)r * 1.5f, 0, (flt)m * 1.5f));
+
+							set_uniform(s, "model_to_world", model_to_world.m4());
+
+							Texture2D tmp;
+
+							set_material_albedo(s, lrgba(to_linear(srgb_albedo), 1));
+
+							set_material_metallic(s,	(flt)m / (flt)(metallic_steps -1));
+							set_material_roughness(s,	(flt)r / (flt)(roughness_steps -1));
+							set_material_normal_identity(s);
+
+							draw_triangles(*s, 0,(int)sphere.size());
+						}
+					}
+				}
+			}
+
+			static bool draw_terrain = 0;
 			imgui::Checkbox("draw_terrain", &draw_terrain);
 			if (draw_terrain) {
 				auto mesh = mesh_manager.get_mesh("assets/terrain.fbx");
@@ -356,6 +473,7 @@ int main () {
 				set_material_normal_identity(s);
 
 				bind_texture(s, "skybox", 4, *skybox);
+				bind_texture(s, "irradiance", 5, irradiance);
 
 				draw_triangles(*s, 0, (int)mesh->vbo_data.size());
 			}
@@ -425,6 +543,7 @@ int main () {
 					set_material_normal_identity(s);
 
 					bind_texture(s, "skybox", 4, *skybox);
+					bind_texture(s, "irradiance", 5, irradiance);
 
 					draw_stream_triangles(*s, quad);
 				}

@@ -132,6 +132,8 @@
     <None Include="shaders\common.vert" />
     <None Include="shaders\default_3d.frag" />
     <None Include="shaders\default_3d.vert" />
+    <None Include="shaders\equirectangular_to_cubemap.frag" />
+    <None Include="shaders\equirectangular_to_cubemap.vert" />
     <None Include="shaders\fullscreen_quad.frag" />
     <None Include="shaders\fullscreen_quad.vert" />
     <None Include="shaders\imgui.frag" />

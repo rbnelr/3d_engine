@@ -5,6 +5,7 @@
 #define STB_IMAGE_ONLY_BMP
 #define STB_IMAGE_ONLY_PNG
 #define STB_IMAGE_ONLY_JPG
+#define STB_IMAGE_ONLY_HDR
 
 #include "deps/stb/stb_image.h"
 
@@ -333,9 +334,10 @@ TextureCube alloc_cube_texture (iv2 size_px, Texture::Options o) {
 	return tex;
 }
 
-u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2* size_px, int* sizeof_pixel=nullptr) {
+void* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2* size_px, int* sizeof_pixel=nullptr) {
 	int channels;
 	int got_channels;
+	bool hdr = false;
 
 	switch (o.pixel_format) {
 		case PF_SRGB8:	channels = 3;	break;
@@ -345,21 +347,40 @@ u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2
 		case PF_LRGB8:	channels = 3;	break;
 		case PF_LRGBA8:	channels = 4;	break;
 
-		case PF_LRF:	
-		case PF_LRGBF:	
-		case PF_LRGBAF:	
+		case PF_LRF:	channels = 1;	hdr = true;	break;
+		case PF_LRGBF:	channels = 3;	hdr = true;	break;
+		case PF_LRGBAF:	channels = 4;	hdr = true;	break;
+
 		default: assert(not_implemented);
 	}
 
+	assert((stbi_is_hdr(filepath.c_str()) != 0) == hdr); // could load hdr as 8 bit ldr and vice versa, but just enforce fitting pixel formats for now
+
 	stbi_set_flip_vertically_on_load(true);
 
-	auto* pixels = stbi_load(filepath.c_str(), &size_px->x,&size_px->y, &got_channels, channels);
-	if (!pixels) {
-		fprintf(stderr, "Texture \"%s\" could not be loaded!\n", filepath.c_str());
-		return nullptr;
-	}
+	void* pixels;
 
-	if (sizeof_pixel) *sizeof_pixel = channels * sizeof(u8);
+	if (!hdr) {
+
+		pixels = stbi_load(filepath.c_str(), &size_px->x,&size_px->y, &got_channels, channels);
+		if (!pixels) {
+			fprintf(stderr, "Texture \"%s\" could not be loaded!\n", filepath.c_str());
+			return nullptr;
+		}
+
+		if (sizeof_pixel) *sizeof_pixel = channels * sizeof(u8);
+
+	} else {
+		
+		pixels = stbi_loadf(filepath.c_str(), &size_px->x,&size_px->y, &got_channels, channels);
+		if (!pixels) {
+			fprintf(stderr, "Texture \"%s\" could not be loaded!\n", filepath.c_str());
+			return nullptr;
+		}
+
+		if (sizeof_pixel) *sizeof_pixel = channels * sizeof(u8);
+
+	}
 	return pixels;
 }
 

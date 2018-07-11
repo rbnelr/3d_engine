@@ -111,9 +111,8 @@ void draw_to_texture (FBO const& fbo, iv2 texture_size) {
 }
 
 //
-void draw_entire_cubemap (Shader* shad, TextureCube* cubemap, iv2 cubemap_res) {
-	static auto fbo = create_fbo(*cubemap, cubemap_res);
-
+void draw_entire_cubemap (Shader* shad, FBO_Cube* fbo, iv2 cubemap_res) {
+	
 	glDisable(GL_BLEND);
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
@@ -147,7 +146,7 @@ void draw_entire_cubemap (Shader* shad, TextureCube* cubemap, iv2 cubemap_res) {
 	set_uniform(shad, "cam_to_clip", cam_to_clip);
 
 	for (auto face=0; face<6; ++face) {
-		fbo.draw_to_face(face, cubemap_res);
+		fbo->draw_to_face(face, cubemap_res);
 
 		set_uniform(shad, "to_cam", faces_to_cam[face]);
 
