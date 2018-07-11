@@ -163,6 +163,9 @@
     <ClInclude Include="parse.hpp">
       <Filter>src_reuseable</Filter>
     </ClInclude>
+    <ClInclude Include="directory_watcher.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="todo.txt" />

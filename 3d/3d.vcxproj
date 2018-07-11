@@ -149,6 +149,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="deps\dear_imgui\imgui.h" />
+    <ClInclude Include="directory_watcher.hpp" />
     <ClInclude Include="engine_draw.hpp" />
     <ClInclude Include="engine_draw_to_texture.hpp" />
     <ClInclude Include="engine.hpp" />

@@ -5,6 +5,8 @@
 
 #include "parse.hpp"
 
+#include "directory_watcher.hpp"
+
 namespace engine {
 //
 namespace shader {
@@ -304,6 +306,17 @@ struct Shader_Manager {
 			shad = shaders.emplace(name, std::move(tmp)).first;
 		}
 		return &shad->second;
+	}
+
+	Directory_Watcher shaders_changed = Directory_Watcher("shaders/");
+	
+	void poll_reload_shaders (int frame_i) {
+		std::vector<std::string> changed_files;
+		shaders_changed.poll_file_changes(&changed_files);
+
+		for (auto& filepath : changed_files) {
+			printf("frame %6d: %s changed\n", frame_i, filepath.c_str());
+		}
 	}
 };
 

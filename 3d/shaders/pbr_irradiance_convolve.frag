@@ -18,7 +18,7 @@ vec4 frag () {
 	vec3 right = cross(up, normal);
 	up         = cross(normal, right);
 	
-	float sample_delta = 0.025;
+	float sample_delta = 0.01; // 0.025
 	float samples_count = 0.0; 
 	
 	for (float phi = 0.0; phi < 2.0 * PI; phi += sample_delta) {

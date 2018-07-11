@@ -124,7 +124,7 @@ int main () {
 
 	glEnable(GL_FRAMEBUFFER_SRGB);
 
-	for (;;) {
+	for (int frame_i=0;; ++frame_i) { // frame_i just for debugging
 		
 		auto inp = wnd.poll_input();
 
@@ -141,6 +141,8 @@ int main () {
 
 			imgui::Text("dt: %6.2f ms, fps: %6.2f", frame_time_running_avg * 1000, 1.0f / frame_time_running_avg);
 		}
+
+		shader_manager.poll_reload_shaders(frame_i);
 
 		set_shared_uniform("common", "screen_size", (v2)inp.wnd_size_px);
 		set_shared_uniform("common", "mcursor_pos", inp.mouse_cursor_pos_screen_buttom_up_pixel_center());
