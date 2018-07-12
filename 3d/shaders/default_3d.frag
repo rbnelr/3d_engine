@@ -114,7 +114,7 @@ vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, vec3 frag
 	float NH = max(dot(H, N), 0.0);
 
 	vec3 light_out = vec3(0);
-
+	
 	{ // analytical light
 		vec3 F = fresnel(VH, albedo, metallic);
 		vec3 k_diffuse = 1 -F;
@@ -161,7 +161,7 @@ vec4 frag () {
 	vec4 tangent = vec4(	normalize(vs_tangent_cam.xyz), vs_tangent_cam.w );
 	
 	vec3 normal = normalmapping(normal_sample, vertex_normal, tangent);
-
+	
 	vec3 radiance =  cook_torrance_BRDF(albedo, metallic_sample, roughness_sample, frag_to_light, frag_to_cam, normal);
 	
 	//radiance += texture(skybox, common_cubemap_z_up_to_gl_ori * common_world_to_skybox * mat3(cam_cam_to_world) * reflect(-frag_to_cam, normal)).rgb;

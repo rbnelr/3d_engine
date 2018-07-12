@@ -134,8 +134,6 @@
     <None Include="shaders\default_3d.vert" />
     <None Include="shaders\equirectangular_to_cubemap.frag" />
     <None Include="shaders\equirectangular_to_cubemap.vert" />
-    <None Include="shaders\fullscreen_quad.frag" />
-    <None Include="shaders\fullscreen_quad.vert" />
     <None Include="shaders\imgui.frag" />
     <None Include="shaders\imgui.vert" />
     <None Include="shaders\imgui_texture_window_2d.frag" />
@@ -148,6 +146,7 @@
     <None Include="shaders\skybox_cubemap_gen.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="save_file.hpp" />
     <ClInclude Include="deps\dear_imgui\imgui.h" />
     <ClInclude Include="directory_watcher.hpp" />
     <ClInclude Include="engine_draw.hpp" />

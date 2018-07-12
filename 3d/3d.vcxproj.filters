@@ -27,12 +27,6 @@
     <None Include="shaders\imgui.vert">
       <Filter>shaders</Filter>
     </None>
-    <None Include="shaders\fullscreen_quad.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\fullscreen_quad.vert">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="shaders\skybox_cubemap_gen.frag">
       <Filter>shaders</Filter>
     </None>
@@ -165,6 +159,9 @@
     </ClInclude>
     <ClInclude Include="directory_watcher.hpp">
       <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="save_file.hpp">
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

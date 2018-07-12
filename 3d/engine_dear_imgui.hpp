@@ -65,7 +65,7 @@ namespace ImGui {
 namespace engine {
 	Texture2D imgui_atlas;
 
-	void begin_imgui (Input const& inp, flt dt) {
+	void begin_imgui (Input* inp, flt dt, bool gui_input_enabled, bool imgui_enabled) { // imgui_enabled: hide imgui, we still call imgui calls, so it still needs to work like usually
 		auto init = [] () {
 			ImGui::CreateContext();
 			ImGuiIO& io = ImGui::GetIO();
@@ -93,52 +93,84 @@ namespace engine {
 
 		ImGuiIO& io = ImGui::GetIO();
 		
-		io.KeysDown[ ImGuiKey_Tab			] = inp.buttons[ GLFW_KEY_TAB		].is_down;
-		io.KeysDown[ ImGuiKey_LeftArrow		] = inp.buttons[ GLFW_KEY_LEFT		].is_down;
-		io.KeysDown[ ImGuiKey_RightArrow	] = inp.buttons[ GLFW_KEY_RIGHT		].is_down;
-		io.KeysDown[ ImGuiKey_UpArrow		] = inp.buttons[ GLFW_KEY_UP		].is_down;
-		io.KeysDown[ ImGuiKey_DownArrow		] = inp.buttons[ GLFW_KEY_DOWN		].is_down;
-		io.KeysDown[ ImGuiKey_PageUp		] = inp.buttons[ GLFW_KEY_PAGE_UP	].is_down;
-		io.KeysDown[ ImGuiKey_PageDown		] = inp.buttons[ GLFW_KEY_PAGE_DOWN	].is_down;
-		io.KeysDown[ ImGuiKey_Home			] = inp.buttons[ GLFW_KEY_HOME		].is_down;
-		io.KeysDown[ ImGuiKey_End			] = inp.buttons[ GLFW_KEY_END		].is_down;
-		io.KeysDown[ ImGuiKey_Insert		] = inp.buttons[ GLFW_KEY_INSERT	].is_down;
-		io.KeysDown[ ImGuiKey_Delete		] = inp.buttons[ GLFW_KEY_DELETE	].is_down;
-		io.KeysDown[ ImGuiKey_Backspace		] = inp.buttons[ GLFW_KEY_BACKSPACE	].is_down;
-		io.KeysDown[ ImGuiKey_Space			] = inp.buttons[ GLFW_KEY_SPACE		].is_down;
-		io.KeysDown[ ImGuiKey_Enter			] = inp.buttons[ GLFW_KEY_ENTER		].is_down;
-		io.KeysDown[ ImGuiKey_Escape		] = inp.buttons[ GLFW_KEY_ESCAPE	].is_down;
-		io.KeysDown[ ImGuiKey_A				] = inp.buttons[ GLFW_KEY_A			].is_down;
-		io.KeysDown[ ImGuiKey_C				] = inp.buttons[ GLFW_KEY_C			].is_down;
-		io.KeysDown[ ImGuiKey_V				] = inp.buttons[ GLFW_KEY_V			].is_down;
-		io.KeysDown[ ImGuiKey_X				] = inp.buttons[ GLFW_KEY_X			].is_down;
-		io.KeysDown[ ImGuiKey_Y				] = inp.buttons[ GLFW_KEY_Y			].is_down;
-		io.KeysDown[ ImGuiKey_Z				] = inp.buttons[ GLFW_KEY_Z			].is_down;
+		inp->block_keyboard =		io.WantCaptureKeyboard; // when window is in focus (actived by clicking)
+		inp->block_mouse =			io.WantCaptureMouse; // correctly handles dragging onto and off of the imgui windows
+		inp->blocked_by_typing =	io.WantTextInput;
 
-		io.KeyCtrl =	inp.buttons[ GLFW_KEY_LEFT_CONTROL	].is_down	|| inp.buttons[ GLFW_KEY_RIGHT_CONTROL	].is_down;
-		io.KeyShift =	inp.buttons[ GLFW_KEY_LEFT_SHIFT	].is_down	|| inp.buttons[ GLFW_KEY_RIGHT_SHIFT	].is_down;
-		io.KeyAlt =		inp.buttons[ GLFW_KEY_LEFT_ALT		].is_down	|| inp.buttons[ GLFW_KEY_RIGHT_ALT		].is_down;
-		io.KeySuper =	inp.buttons[ GLFW_KEY_LEFT_SUPER	].is_down	|| inp.buttons[ GLFW_KEY_RIGHT_SUPER	].is_down;
+		//printf("block_keyboard %d block_mouse %d\n", inp->block_keyboard, inp->block_mouse);
 
-		for (auto& e : inp.events) {
-			if (e.type == Input::Event::TYPING)
-				io.AddInputCharacter((ImWchar)e.Typing.codepoint);
+		bool use_input = gui_input_enabled && imgui_enabled;
+
+		if (!use_input) {
+			for (auto& kd : io.KeysDown)
+				kd = false;
+
+			io.KeyCtrl =	false;
+			io.KeyShift =	false;
+			io.KeyAlt =		false;
+			io.KeySuper =	false;
+
+			io.MousePos.x =		-1;
+			io.MousePos.y =		-1;
+			io.MouseDown[0] =	false;
+			io.MouseDown[1] =	false;
+			io.MouseWheel =		0;
+
+		} else {
+
+			io.KeysDown[ ImGuiKey_Tab			] = inp->buttons[ GLFW_KEY_TAB			].is_down;
+			io.KeysDown[ ImGuiKey_LeftArrow		] = inp->buttons[ GLFW_KEY_LEFT			].is_down;
+			io.KeysDown[ ImGuiKey_RightArrow	] = inp->buttons[ GLFW_KEY_RIGHT		].is_down;
+			io.KeysDown[ ImGuiKey_UpArrow		] = inp->buttons[ GLFW_KEY_UP			].is_down;
+			io.KeysDown[ ImGuiKey_DownArrow		] = inp->buttons[ GLFW_KEY_DOWN			].is_down;
+			io.KeysDown[ ImGuiKey_PageUp		] = inp->buttons[ GLFW_KEY_PAGE_UP		].is_down;
+			io.KeysDown[ ImGuiKey_PageDown		] = inp->buttons[ GLFW_KEY_PAGE_DOWN	].is_down;
+			io.KeysDown[ ImGuiKey_Home			] = inp->buttons[ GLFW_KEY_HOME			].is_down;
+			io.KeysDown[ ImGuiKey_End			] = inp->buttons[ GLFW_KEY_END			].is_down;
+			io.KeysDown[ ImGuiKey_Insert		] = inp->buttons[ GLFW_KEY_INSERT		].is_down;
+			io.KeysDown[ ImGuiKey_Delete		] = inp->buttons[ GLFW_KEY_DELETE		].is_down;
+			io.KeysDown[ ImGuiKey_Backspace		] = inp->buttons[ GLFW_KEY_BACKSPACE	].is_down;
+			io.KeysDown[ ImGuiKey_Space			] = inp->buttons[ GLFW_KEY_SPACE		].is_down;
+			io.KeysDown[ ImGuiKey_Enter			] = inp->buttons[ GLFW_KEY_ENTER		].is_down;
+			io.KeysDown[ ImGuiKey_Escape		] = inp->buttons[ GLFW_KEY_ESCAPE		].is_down;
+			io.KeysDown[ ImGuiKey_A				] = inp->buttons[ GLFW_KEY_A			].is_down;
+			io.KeysDown[ ImGuiKey_C				] = inp->buttons[ GLFW_KEY_C			].is_down;
+			io.KeysDown[ ImGuiKey_V				] = inp->buttons[ GLFW_KEY_V			].is_down;
+			io.KeysDown[ ImGuiKey_X				] = inp->buttons[ GLFW_KEY_X			].is_down;
+			io.KeysDown[ ImGuiKey_Y				] = inp->buttons[ GLFW_KEY_Y			].is_down;
+			io.KeysDown[ ImGuiKey_Z				] = inp->buttons[ GLFW_KEY_Z			].is_down;
+
+			io.KeyCtrl =	inp->buttons[ GLFW_KEY_LEFT_CONTROL	].is_down	|| inp->buttons[ GLFW_KEY_RIGHT_CONTROL	].is_down;
+			io.KeyShift =	inp->buttons[ GLFW_KEY_LEFT_SHIFT	].is_down	|| inp->buttons[ GLFW_KEY_RIGHT_SHIFT	].is_down;
+			io.KeyAlt =		inp->buttons[ GLFW_KEY_LEFT_ALT		].is_down	|| inp->buttons[ GLFW_KEY_RIGHT_ALT		].is_down;
+			io.KeySuper =	inp->buttons[ GLFW_KEY_LEFT_SUPER	].is_down	|| inp->buttons[ GLFW_KEY_RIGHT_SUPER	].is_down;
+
+			for (auto& e : inp->events) {
+				if (e.type == Input::Event::TYPING)
+					io.AddInputCharacter((ImWchar)e.Typing.codepoint);
+			}
+
+			io.MousePos.x =		inp->mousecursor.pos_screen.x;
+			io.MousePos.y =		inp->mousecursor.pos_screen.y;
+			io.MouseDown[0] =	inp->buttons[GLFW_MOUSE_BUTTON_LEFT].is_down;
+			io.MouseDown[1] =	inp->buttons[GLFW_MOUSE_BUTTON_RIGHT].is_down;
+			io.MouseWheel =		inp->mousewheel.delta;
 		}
 
-		io.DisplaySize.x = (flt)inp.wnd_size_px.x;
-		io.DisplaySize.y = (flt)inp.wnd_size_px.y;
-		io.DeltaTime = dt;
-		io.MousePos.x = inp.mousecursor.pos_screen.x;
-		io.MousePos.y = inp.mousecursor.pos_screen.y;
-		io.MouseDown[0] = inp.buttons[GLFW_MOUSE_BUTTON_LEFT].is_down;
-		io.MouseDown[1] = inp.buttons[GLFW_MOUSE_BUTTON_RIGHT].is_down;
-		io.MouseWheel = inp.mousewheel.delta;
+		io.DisplaySize.x = (flt)inp->wnd_size_px.x;
+		io.DisplaySize.y = (flt)inp->wnd_size_px.y;
+		io.DeltaTime =		dt;
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
 		ImGui::NewFrame();
 	}
 
-	void end_imgui (iv2 wnd_size_px) { // expect viewport to be set
+	void end_imgui (iv2 wnd_size_px, bool imgui_enabled) { // expect viewport to be set
+		if (!imgui_enabled) {
+			ImGui::EndFrame();
+			return;
+		}
+
 		ImGui::Render();
 
 		glEnable(GL_BLEND);
@@ -194,7 +226,7 @@ namespace engine {
 						assert(not_implemented);
 					}
 
-					auto shad = use_shader("shaders/imgui");
+					auto shad = use_shader("imgui");
 					assert(shad);
 
 					use_vertex_data(*shad, layout, vbo);
@@ -250,7 +282,7 @@ namespace engine {
 		Any_Texture* tex = texture_manager.find_texture(w->tex_name);
 		assert(tex->type == TEXTURE_2D);
 
-		auto* s = use_shader("shaders/imgui_texture_window_2d");
+		auto* s = use_shader("imgui_texture_window_2d");
 		assert(s);
 
 		set_uniform(s, "show_channels", w->show_channels);

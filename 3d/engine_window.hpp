@@ -73,6 +73,10 @@ namespace engine {
 	};
 
 	struct Input {
+		
+		bool block_mouse = false;
+		bool block_keyboard = false;
+		bool blocked_by_typing = false;
 
 		iv2	wnd_size_px;
 
@@ -102,6 +106,35 @@ namespace engine {
 
 		Button buttons[GLFW_KEY_LAST +1] = {}; // lower 8 indecies are used as mouse button (GLFW_MOUSE_BUTTON_1 - GLFW_MOUSE_BUTTON_8), glfw does not seem to have anything assigned to them
 
+		bool is_down (int glfw_button) const {
+			if (block_keyboard) return false;
+			return buttons[glfw_button].is_down;
+		}
+		bool went_down (int glfw_button) const {
+			if (block_keyboard) return false;
+			return buttons[glfw_button].went_down;
+		}
+		bool went_up (int glfw_button) const {
+			if (block_keyboard) return false;
+			return buttons[glfw_button].went_up;
+		}
+		bool os_repeat (int glfw_button) const {
+			if (block_keyboard) return false;
+			return buttons[glfw_button].os_repeat;
+		}
+
+		bool key_combo (int glfw_mod_key_l, int glfw_mod_key_r, int glfw_key) {
+			if (blocked_by_typing) return false; // still trigger ctrl+key shortcut if keyboard is blocked, since key does not interfere with imgui (don't trigger during text typing)
+
+			auto& lc = buttons[glfw_mod_key_l];
+			auto& rc = buttons[glfw_mod_key_r];
+			auto& key = buttons[glfw_key];
+
+			return	( (lc.is_down ||   rc.is_down) &&  key.is_down ) && // all keys in combo must be down
+				(  lc.went_down || rc.went_down || key.went_down ); // but only trigger if one of them went down
+		}
+		bool ctrl_combo (int glfw_key) {	return key_combo(GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL, glfw_key); }
+		bool alt_combo (int glfw_key) {		return key_combo(GLFW_KEY_LEFT_ALT, GLFW_KEY_RIGHT_ALT, glfw_key); }
 
 		struct Event {
 
@@ -293,7 +326,7 @@ namespace engine {
 				close();
 		}
 
-		Input& poll_input () {
+		Input& poll_input (bool mouse_cursor_enabled) {
 
 			inp.mousecursor.delta_screen = 0;
 			inp.mousewheel.delta = 0;
@@ -304,6 +337,8 @@ namespace engine {
 			}
 
 			inp.events.clear();
+
+			glfwSetInputMode(window, GLFW_CURSOR, mouse_cursor_enabled ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
 
 			glfwPollEvents();
 
@@ -392,6 +427,8 @@ namespace engine {
 		}
 		static void glfw_mouse_scroll (GLFWwindow* window, double xoffset, double yoffset) {
 			Input& inp = ((Window*)glfwGetWindowUserPointer(window))->inp;
+
+			inp.mousewheel.delta += (flt)yoffset;
 
 			inp.events.push_back({ Input::Event::MOUSEWHEEL });
 			inp.events.back().Mousewheel.delta = (flt)yoffset;

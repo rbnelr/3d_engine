@@ -43,8 +43,8 @@ void set_material_normal_identity(Shader* s) {
 	bind_texture(s,	"normal_tex", 3, *tex_identity_normal());
 }
 
-std::string shad_default_2d =			"shaders/default_2d";
-std::string shad_default_3d =			"shaders/default_3d";
+std::string shad_default_2d =			"default_2d";
+std::string shad_default_3d =			"default_3d";
 
 hm calc_cam_to_world (v3 cam_pos_world, v3 cam_altazimuth) {
 	quat rot = rotateQ_Z(cam_altazimuth.x) * rotateQ_X(cam_altazimuth.y) * rotateQ_Z(cam_altazimuth.z);
@@ -74,14 +74,14 @@ struct Camera {
 		flt roll_vel = deg(45); // ang / sec
 
 		int roll_dir = 0;
-		if (inp.buttons['Q'].is_down) roll_dir -= 1;
-		if (inp.buttons['E'].is_down) roll_dir += 1;
+		if (inp.is_down('Q')) roll_dir -= 1;
+		if (inp.is_down('E')) roll_dir += 1;
 
 		altazimuth.z += (flt)-roll_dir * roll_vel * dt;
 
 		v2 mouselook_sensitivity = deg(0.12f); // ang / mouse_move_px
 		
-		if (inp.buttons[GLFW_MOUSE_BUTTON_RIGHT].is_down) {
+		if (inp.is_down(GLFW_MOUSE_BUTTON_RIGHT) && !inp.block_mouse) {
 			altazimuth.x -=  inp.mousecursor.delta_screen.x * mouselook_sensitivity.x;
 			altazimuth.y += -inp.mousecursor.delta_screen.y * mouselook_sensitivity.y; // delta_screen is top down
 		}
@@ -92,27 +92,98 @@ struct Camera {
 
 		// movement
 		iv3 move_dir = 0;
-		if (inp.buttons['S'].is_down)					move_dir.z += 1;
-		if (inp.buttons['W'].is_down)					move_dir.z -= 1;
-		if (inp.buttons['A'].is_down)					move_dir.x -= 1;
-		if (inp.buttons['D'].is_down)					move_dir.x += 1;
-		if (inp.buttons[GLFW_KEY_LEFT_CONTROL].is_down)	move_dir.y -= 1;
-		if (inp.buttons[' '].is_down)					move_dir.y += 1;
+		if (inp.is_down('S'))					move_dir.z += 1;
+		if (inp.is_down('W'))					move_dir.z -= 1;
+		if (inp.is_down('A'))					move_dir.x -= 1;
+		if (inp.is_down('D'))					move_dir.x += 1;
+		if (inp.is_down(GLFW_KEY_LEFT_CONTROL))	move_dir.y -= 1;
+		if (inp.is_down(' '))					move_dir.y += 1;
 
-		flt speed = base_speed * (inp.buttons[GLFW_KEY_LEFT_SHIFT].is_down ? fast_mult : 1);
+		flt speed = base_speed * (inp.is_down(GLFW_KEY_LEFT_SHIFT) ? fast_mult : 1);
 
 		pos_world += (calc_cam_to_world(pos_world, altazimuth).m3() * (normalize_or_zero((v3)move_dir) * speed)) * dt;
 	}
 
-	void imgui () {
-		imgui::DragFloat3("cam.pos_world", &pos_world.x, 1.0f / 100);
-		imgui::SliderAngle("cam.vfov", &vfov, 0,180);
+	void imgui (Save* save, cstr name) {
+		if (imgui::CollapsingHeader("cam")) {
 
-		imgui::DragFloat("cam.base_speed", &base_speed, 1.0f / 10);
-		imgui::DragFloat("cam.fast_mult", &fast_mult, 1.0f / 10);
+			imgui::DragFloat3("pos_world", &pos_world.x, 1.0f / 100);
+			imgui::DragFloat3("altazimuth", &altazimuth.x, 1.0f / 100);
 
+			imgui::SliderAngle("vfov", &vfov, 0,180);
+
+			imgui::DragFloat("clip_near", &clip_near, 1.0f / 100);
+			imgui::DragFloat("clip_far", &clip_far, 1.0f / 100);
+
+			imgui::DragFloat("base_speed", &base_speed, 1.0f / 10);
+			imgui::DragFloat("fast_mult", &fast_mult, 1.0f / 10);
+			
+		}
+
+		save->begin("cam");
+		{
+			save->value("pos_world", &pos_world);
+			save->angle("altazimuth", &altazimuth);
+		
+			save->angle("vfov", &vfov);
+		
+			save->value("clip_near", &clip_near);
+			save->value("clip_far", &clip_far);
+		
+			save->value("base_speed", &base_speed);
+			save->value("fast_mult", &fast_mult);
+		}
+		save->end();
 	}
 };
+
+std::vector<Default_Vertex_3d> gen_sphere (flt radius=1, iv2 lonlat_steps=iv2(64,32)) {
+	std::vector<Default_Vertex_3d> mesh;
+
+	struct Vert { v3 pos; v3 tangent; v2 uv; };
+	
+	auto vert = [&] (Vert v) {
+		Default_Vertex_3d out;
+		out.pos_model =			v.pos;
+		out.tangent_model =		v4(v.tangent, 1);
+		out.normal_model =		normalize(v.pos);
+		out.uv =				v.uv;
+		mesh.push_back(out);
+	};
+	auto quad = [&] (Vert a, Vert b, Vert c, Vert d) {
+		vert(b);
+		vert(c);
+		vert(a);
+		vert(a);
+		vert(c);
+		vert(d);
+	};
+
+	for (int lat=0; lat<lonlat_steps.y; ++lat) {
+
+		flt lat0 = (flt)(lat +0) / (flt)lonlat_steps.y;
+		flt lat1 = (flt)(lat +1) / (flt)lonlat_steps.y;
+
+		m3 lat_rot0 = rotate3_Y(lat0 * deg(180));
+		m3 lat_rot1 = rotate3_Y(lat1 * deg(180));
+
+		for (int lon=0; lon<lonlat_steps.x; ++lon) {
+
+			flt lon0 = (flt)(lon +0) / (flt)lonlat_steps.x;
+			flt lon1 = (flt)(lon +1) / (flt)lonlat_steps.x;
+
+			m3 lon_rot0 = rotate3_Z(lon0 * deg(360));
+			m3 lon_rot1 = rotate3_Z(lon1 * deg(360));
+
+			quad({ lon_rot0 * (lat_rot0 * v3(0,0,-radius)), lon_rot0 * v3(0,1,0), v2(lon0,lat0) },
+				 { lon_rot1 * (lat_rot0 * v3(0,0,-radius)), lon_rot1 * v3(0,1,0), v2(lon1,lat0) },
+				 { lon_rot1 * (lat_rot1 * v3(0,0,-radius)), lon_rot1 * v3(0,1,0), v2(lon1,lat1) },
+				 { lon_rot0 * (lat_rot1 * v3(0,0,-radius)), lon_rot0 * v3(0,1,0), v2(lon0,lat1) } );
+		}
+	}
+
+	return mesh;
+}
 
 int main () {
 	
@@ -126,12 +197,37 @@ int main () {
 
 	for (int frame_i=0;; ++frame_i) { // frame_i just for debugging
 		
-		auto inp = wnd.poll_input();
+		static bool gui_input_enabled = true; // true: mouse visible, mouse can click on guis, keyboard input for imgui enabled,  false: mouselook mouse
+
+		auto inp = wnd.poll_input(gui_input_enabled);
 
 		if (wnd.wants_to_close())
 			break;
 
-		begin_imgui(inp, dt);
+		static bool imgui_enabled = true;
+		if (inp.went_down(GLFW_KEY_F2))
+			imgui_enabled = !imgui_enabled;
+		if (inp.went_down(GLFW_KEY_F1))
+			gui_input_enabled = !gui_input_enabled;
+		
+		begin_imgui(&inp, dt, gui_input_enabled, imgui_enabled);
+
+		if (	(inp.buttons[GLFW_MOUSE_BUTTON_RIGHT].went_down && !imgui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) // unfocus imgui windows when right clicking outside of them
+				|| frame_i < 3 || !imgui_enabled || !gui_input_enabled ) { // imgui steals focus on the third frame for some reason
+			imgui::ClearActiveID();
+			imgui::FocusWindow(NULL);
+		}
+
+		imgui::Begin("Debug");
+
+		Save* save;
+		{
+			bool trigger_load = imgui::Button("Load") || inp.alt_combo(GLFW_KEY_L) || frame_i == 0;
+			imgui::SameLine(0, 50);
+			bool trigger_save = imgui::Button("Save") || inp.alt_combo(GLFW_KEY_S);
+		
+			save = save_file("saves/saves", trigger_load, trigger_save);
+		}
 
 		{
 			static f32 frame_time_running_avg = dt;
@@ -152,18 +248,21 @@ int main () {
 		set_shared_uniform("common", "cubemap_gl_ori_to_z_up", rotate3_X(-deg(90)));
 		set_shared_uniform("common", "cubemap_z_up_to_gl_ori", rotate3_X(+deg(90)));
 
+		std::string test = "blah";
+		save->value("test", &test);
+
 		static bool draw_wireframe = false;
+		save->value("draw_wireframe", &draw_wireframe);
 		imgui::Checkbox("draw_wireframe", &draw_wireframe);
-		if (inp.buttons['P'].went_down)
+		if (inp.went_down('P'))
 			draw_wireframe = !draw_wireframe;
 
 		set_shared_uniform("wireframe", "enable", draw_wireframe);
 
 		static Camera cam;
-		//saveable("3d_camera", &cam);
 
 		cam.control(inp, dt);
-		cam.imgui();
+		cam.imgui(save, "cam");
 
 		hm	world_to_cam = calc_world_to_cam(cam.pos_world, cam.altazimuth);
 		hm	cam_to_world = calc_cam_to_world(cam.pos_world, cam.altazimuth);
@@ -190,6 +289,7 @@ int main () {
 		};
 		static bool selected_skybox_changed = true;
 		selected_skybox_changed = imgui::Combo("skybox", &selected_skybox, skyboxes, ARRLEN(skyboxes)) || selected_skybox_changed;
+		save->value("selected_skybox", &selected_skybox);
 
 		v3 skyboxes_dir_to_sun_skybox[] = {
 			rotate3_Z(deg(  85)) * rotate3_X(deg( 30)) * v3(0,1,0),
@@ -218,7 +318,8 @@ int main () {
 
 		static flt rotate_skybox = 0;
 		imgui::SliderAngle("rotate_skybox", &rotate_skybox, +180, -180);
-		
+		save->angle("rotate_skybox", &rotate_skybox);
+
 		m3 world_to_skybox = rotate3_Z(-rotate_skybox);
 		m3 skybox_to_world = rotate3_Z(rotate_skybox);
 		
@@ -241,7 +342,7 @@ int main () {
 			static auto fbo = create_fbo(_skybox, skybox_res);
 
 			if (selected_skybox_changed) {
-				auto s = use_shader("shaders/equirectangular_to_cubemap");
+				auto s = use_shader("equirectangular_to_cubemap");
 				assert(s);
 
 				//
@@ -273,7 +374,7 @@ int main () {
 			skybox = &_skybox;
 
 			if (selected_skybox_changed) {
-				auto s = use_shader("shaders/skybox_cubemap_gen");
+				auto s = use_shader("skybox_cubemap_gen");
 				assert(s);
 
 				//
@@ -289,7 +390,7 @@ int main () {
 			static auto fbo = create_fbo(irradiance, irradiance_res);
 
 			if (selected_skybox_changed) {
-				auto s = use_shader("shaders/pbr_irradiance_convolve");
+				auto s = use_shader("pbr_irradiance_convolve");
 				assert(s);
 
 				bind_texture(s, "source_radiance", 0, *skybox);
@@ -313,9 +414,10 @@ int main () {
 
 			glDisable(GL_DEPTH_TEST);
 			glDepthMask(GL_FALSE);
+			glEnable(GL_DEPTH_CLAMP);
 
 			{
-				auto s = use_shader("shaders/skybox");
+				auto s = use_shader("skybox");
 				assert(s);
 				
 				struct Vertex {
@@ -338,6 +440,7 @@ int main () {
 
 				draw_triangles(*s, 0, (int)cube.size());
 			}
+			glDisable(GL_DEPTH_CLAMP);
 
 			glDisable(GL_BLEND);
 			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -348,6 +451,7 @@ int main () {
 
 			static bool draw_cerberus = true;
 			imgui::Checkbox("draw_cerberus", &draw_cerberus);
+			save->value("draw_cerberus", &draw_cerberus);
 			if (draw_cerberus) {
 				auto cerberus = mesh_manager.get_mesh("assets/Cerberus_by_Andrew_Maximov/Cerberus_LP.FBX");
 				
@@ -370,88 +474,177 @@ int main () {
 				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
 			}
 
+			static auto sphere_mesh = gen_sphere();
+			
 			{
-				auto s = use_shader(shad_default_3d);
-				if (s) {
+				auto shad = use_shader(shad_default_3d);
+				if (shad) {
+					
+					static auto vbo = stream_vertex_data(sphere_mesh.data(), (int)sphere_mesh.size() * Default_Vertex_3d::layout.vertex_size);
+					use_vertex_data(*shad, Default_Vertex_3d::layout, vbo);
 
-					static std::vector<Default_Vertex_3d> sphere;
-					if (sphere.size() == 0) {
-						flt radius = 0.5f;
-						
-						auto vert = [&] (v3 p) {
-							Default_Vertex_3d v;
-							v.pos_model = p;
-							v.normal_model = normalize(p);
-							sphere.push_back(v);
-						};
-						auto quad = [&] (v3 a, v3 b, v3 c, v3 d) {
-							vert(b);
-							vert(c);
-							vert(a);
-							vert(a);
-							vert(c);
-							vert(d);
-						};
+					bind_texture(shad, "skybox", 4, *skybox);
+					bind_texture(shad, "irradiance", 5, irradiance);
 
-						int lat_steps = 32; // latitude
-						int lon_steps = 64; // longitude
+					{
+						static v3 srgb_albedo = (v3(1.000f, 0.766f, 0.336f));
+						imgui::ColorEdit3("spheres.albedo", &srgb_albedo.x);
+						save->value("spheres.albedo", &srgb_albedo);
 
-						for (int lat=0; lat<lat_steps; ++lat) {
-							
-							flt lat_ang0 = (flt)(lat +0) / (flt)lat_steps;
-							flt lat_ang1 = (flt)(lat +1) / (flt)lat_steps;
+						static int metallic_steps = 3;
+						static int roughness_steps = 7;
+						imgui::DragInt("spheres.metallic_steps", &metallic_steps, 1.0f / 25);
+						imgui::DragInt("spheres.roughness_steps", &roughness_steps, 1.0f / 25);
+						save->value("metallic_steps", &metallic_steps);
+						save->value("roughness_steps", &roughness_steps);
 
-							m3 lat_rot0 = rotate3_Y(lat_ang0 * deg(180));
-							m3 lat_rot1 = rotate3_Y(lat_ang1 * deg(180));
-							
-							for (int lon=0; lon<lon_steps; ++lon) {
+						for (int m=0; m<metallic_steps; ++m) {
+							for (int r=0; r<roughness_steps; ++r) {
 
-								flt lon_ang0 = (flt)(lon +0) / (flt)lon_steps;
-								flt lon_ang1 = (flt)(lon +1) / (flt)lon_steps;
+								hm model_to_world = translateH(v3(-5,0,0)) * rotateH_Z(deg(30)) * translateH(v3((flt)r * 1.5f, 0, (flt)m * 1.5f)) * scaleH(0.5f);
 
-								m3 lon_rot0 = rotate3_Z(lon_ang0 * deg(360));
-								m3 lon_rot1 = rotate3_Z(lon_ang1 * deg(360));
+								set_uniform(shad, "model_to_world", model_to_world.m4());
 
-								quad(	lon_rot0 * lat_rot0 * v3(0,0,-radius),
-										lon_rot1 * lat_rot0 * v3(0,0,-radius),
-										lon_rot1 * lat_rot1 * v3(0,0,-radius),
-										lon_rot0 * lat_rot1 * v3(0,0,-radius) );
+								set_material_albedo(shad, lrgba(to_linear(srgb_albedo), 1));
 
+								set_material_metallic(shad,	(flt)m / (flt)(metallic_steps -1));
+								set_material_roughness(shad,	(flt)r / (flt)(roughness_steps -1));
+								set_material_normal_identity(shad);
+
+								draw_triangles(*shad, 0,(int)sphere_mesh.size());
 							}
 						}
 					}
 
-					static auto vbo = stream_vertex_data(sphere.data(), (int)sphere.size() * Default_Vertex_3d::layout.vertex_size);
-					use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
+					struct Sphere {
+						std::string	name;
 
-					static v3 srgb_albedo = (v3(1.000f, 0.766f, 0.336f));
-					imgui::ColorEdit3("spheres.albedo", &srgb_albedo.x);
+						v3			pos;
+						flt			ori;
+						flt			radius;
 
-					static int metallic_steps = 3;
-					static int roughness_steps = 7;
-					imgui::DragInt("spheres.metallic_steps", &metallic_steps, 1.0f / 25);
-					imgui::DragInt("spheres.roughness_steps", &roughness_steps, 1.0f / 25);
 
-					bind_texture(s, "skybox", 4, *skybox);
-					bind_texture(s, "irradiance", 5, irradiance);
+						std::string	folder;
+						// if empty use values below (identity for normal)
+						std::string	albedo_tex;
+						std::string	metallic_tex;
+						std::string	roughness_tex;
+						std::string	normal_tex;
 
-					for (int m=0; m<metallic_steps; ++m) {
-						for (int r=0; r<roughness_steps; ++r) {
+						v3			albedo_srgb;
+						flt			metallic;
+						flt			roughness;
 
-							hm model_to_world = translateH(v3(-5,0,0)) * rotateH_Z(deg(30)) * translateH(v3((flt)r * 1.5f, 0, (flt)m * 1.5f));
+						bool		imgui_open;
 
-							set_uniform(s, "model_to_world", model_to_world.m4());
+						bool imgui () {
+							bool delete_sphere = false;
 
-							Texture2D tmp;
+							imgui::SetNextTreeNodeOpen(imgui_open);
+							imgui_open = imgui::TreeNode(this, name.c_str());
+							if (!imgui_open)
+								return delete_sphere;
 
-							set_material_albedo(s, lrgba(to_linear(srgb_albedo), 1));
+							if (imgui::BeginPopupContextItem("context menu")) {
+								delete_sphere = imgui::Button("Delete");
+								ImGui::EndPopup();
+							}
 
-							set_material_metallic(s,	(flt)m / (flt)(metallic_steps -1));
-							set_material_roughness(s,	(flt)r / (flt)(roughness_steps -1));
-							set_material_normal_identity(s);
+							imgui::InputText_str("name", &name);
 
-							draw_triangles(*s, 0,(int)sphere.size());
+							flt w = imgui::GetContentRegionAvailWidth();
+
+							imgui::DragFloat3("pos", &pos.x, 1.0f / 25);
+
+							flt ori_deg = to_deg(ori);
+							imgui::DragFloat("ori", &ori_deg, 360.0f / 200);
+							ori = to_rad(ori_deg);
+
+							imgui::DragFloat("radius", &radius, 1.0f / 25);
+
+							imgui::InputText_str("folder", &folder);
+
+							imgui::InputText_str("albedo_tex", &albedo_tex);
+							imgui::InputText_str("metallic_tex", &metallic_tex);
+							imgui::InputText_str("roughness_tex", &roughness_tex);
+							imgui::InputText_str("normal_tex", &normal_tex);
+
+							imgui::ColorEdit3("albedo", &albedo_srgb.x);
+							imgui::SliderFloat("metallic", &metallic, 0,1);
+							imgui::SliderFloat("roughness", &roughness, 0,1);
+
+							imgui::TreePop();
+
+							return delete_sphere;
 						}
+						void save (Save* save) {
+							
+							save->value("name",				&name);
+							save->value("pos",				&pos);
+							save->angle("ori",				&ori);
+							save->value("radius",			&radius);
+							
+							save->value("folder",			&folder);
+							save->value("albedo_tex",		&albedo_tex);
+							save->value("metallic_tex",		&metallic_tex);
+							save->value("roughness_tex",	&roughness_tex);
+							save->value("normal_tex",		&normal_tex);
+							
+							save->value("albedo_srgb",		&albedo_srgb);
+							save->value("metallic",			&metallic);
+							save->value("roughness",		&roughness);
+
+						}
+					};
+					static std::vector<Sphere> spheres = {
+						{ "rustediron", v3(6.16f, 3.76f, 0), 0, 0.5f, "assets/pbr_mats/rustediron1-alt2-Unreal-Engine/", "rustediron2_basecolor.png", "rustediron2_metallic.png", "rustediron2_roughness.png", "rustediron2_normal.png", 1, 0, 0.25f },
+					};
+
+					if (imgui::TreeNodeEx("spheres", ImGuiTreeNodeFlags_DefaultOpen)) {
+
+						for (auto it=spheres.begin(); it!=spheres.end();) {
+
+							bool delete_it = it->imgui();
+							
+							if (delete_it)
+								it = spheres.erase(it);
+							else
+								++it;
+						}
+
+						if (imgui::Button("Add"))
+							spheres.emplace_back();
+
+						imgui::TreePop();
+					}
+
+					save->begin_array("spheres");
+					for (auto& s : spheres) {
+						save->begin_arr_elem("sphere");
+						s.save(save);
+						save->end_arr_elem();
+					}
+					save->end_array();
+
+					for (auto& s : spheres) {
+						
+						hm model_to_world = translateH(s.pos) * rotateH_Z(s.ori) * scaleH(s.radius);
+
+						set_uniform(shad, "model_to_world", model_to_world.m4());
+
+						if (s.albedo_tex.size() > 0)	set_material_albedo(shad, *get_texture(		s.folder + s.albedo_tex, { PF_SRGB8 }));
+						else							set_material_albedo(shad, lrgba(to_linear(s.albedo_srgb), 1));
+
+						if (s.metallic_tex.size() > 0)	set_material_metallic(shad, *get_texture(	s.folder + s.metallic_tex, { PF_LRGB8 }));
+						else							set_material_metallic(shad, s.metallic);
+
+						if (s.roughness_tex.size() > 0)	set_material_roughness(shad, *get_texture(	s.folder + s.roughness_tex, { PF_LRGB8 }));
+						else							set_material_roughness(shad, s.roughness);
+
+						if (s.normal_tex.size() > 0)	set_material_normal(shad, *get_texture(		s.folder + s.normal_tex, { PF_LRGB8 }));
+						else							set_material_normal_identity(shad);
+
+						draw_triangles(*shad, 0,(int)sphere_mesh.size());
 					}
 				}
 			}
@@ -611,8 +804,36 @@ int main () {
 						{ "pos_clip",			FV4,	(int)offsetof(Vertex_2d, pos_clip) },
 						{ "uv",					FV2,	(int)offsetof(Vertex_2d, uv) },
 					}};
-			
-					auto shad = use_shader("shaders/fullscreen_quad");
+					
+					static bool test_inline_shader_reloading = false;
+					imgui::Checkbox("test_inline_shader_reloading", &test_inline_shader_reloading);
+
+					inline_shader("fullscreen_quad.vert", R"_SHAD(
+						$include "common.vert"
+					
+						in		vec4	pos_clip;
+						in		vec2	uv;
+					
+						out		vec2	vs_uv;
+					
+						void vert () {
+							gl_Position =		pos_clip;
+							vs_uv =				uv;
+						}
+					)_SHAD");
+					inline_shader("fullscreen_quad.frag", prints(R"_SHAD(
+						$include "common.frag"
+					
+						in		vec2	vs_uv;
+					
+						uniform sampler2D tex;
+					
+						vec4 frag () {
+							return %d != 0 ? vec4(0,1,0,1) : texture(tex, vs_uv);
+						}
+					)_SHAD", test_inline_shader_reloading && (frame_i / 60) % 2)); // That this just works is crazy
+
+					auto shad = use_shader("fullscreen_quad");
 					assert(shad);
 
 					static Vertex_2d fullscreen_quad[] = {
@@ -636,7 +857,12 @@ int main () {
 		imgui_texture_windows();
 
 		draw_to_screen(inp.wnd_size_px);
-		end_imgui(inp.wnd_size_px);
+
+		save->end_frame();
+
+		imgui::End();
+		//imgui::ShowDemoWindow();
+		end_imgui(inp.wnd_size_px, imgui_enabled);
 
 		wnd.swap_buffers();
 		

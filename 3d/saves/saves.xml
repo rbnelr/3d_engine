@@ -1,0 +1,34 @@
+<test>blah</test>
+<draw_wireframe>false</draw_wireframe>
+<cam>
+	<pos_world>0.100204, -2.01394, 1.00866</pos_world>
+	<altazimuth>0.839977 deg, 58.16 deg, 0 deg</altazimuth>
+	<vfov>75 deg</vfov>
+	<clip_near>0.0625</clip_near>
+	<clip_far>1024</clip_far>
+	<base_speed>1</base_speed>
+	<fast_mult>4</fast_mult>
+</cam>
+<selected_skybox>7</selected_skybox>
+<rotate_skybox>0 deg</rotate_skybox>
+<draw_cerberus>true</draw_cerberus>
+<spheres.albedo>1, 0.766, 0.336</spheres.albedo>
+<metallic_steps>3</metallic_steps>
+<roughness_steps>7</roughness_steps>
+<spheres>
+	<sphere>
+		<name>rustediron</name>
+		<pos>6.16, 3.76, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets/pbr_mats/rustediron1-alt2-Unreal-Engine/</folder>
+		<albedo_tex>rustediron2_basecolor.png</albedo_tex>
+		<metallic_tex>rustediron2_metallic.png</metallic_tex>
+		<roughness_tex>rustediron2_roughness.png</roughness_tex>
+		<normal_tex>rustediron2_normal.png</normal_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.25</roughness>
+	</sphere>
+</spheres>
+
