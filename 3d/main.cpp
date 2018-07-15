@@ -303,15 +303,22 @@ int main () {
 		
 		static flt rotate_skybox = 0;
 		
-		static bool selected_skybox_changed = true;
+		static int skybox_res = 512;
+		
+		bool update_skybox = frame_i == 0;
 		if (imgui::TreeNodeEx("skybox", ImGuiTreeNodeFlags_CollapsingHeader|ImGuiTreeNodeFlags_DefaultOpen)) {
 			
-			selected_skybox_changed = imgui::Combo("skybox", &selected_skybox, skyboxes, ARRLEN(skyboxes)) || selected_skybox_changed;
+			update_skybox = imgui::Combo("skybox", &selected_skybox, skyboxes, ARRLEN(skyboxes)) || update_skybox;
 			save->value("selected_skybox", &selected_skybox);
 
 			imgui::SliderAngle("rotate_skybox", &rotate_skybox, +180, -180);
 			save->angle("rotate_skybox", &rotate_skybox);
 
+			imgui::InputInt("skybox_res", &skybox_res) || update_skybox;
+			save->value("skybox_res", &skybox_res);
+
+			update_skybox = imgui::Button("update_skybox") || update_skybox;
+			
 			imgui::TreePop();
 		}
 		imgui::Separator();
@@ -352,49 +359,45 @@ int main () {
 		set_shared_uniform("common", "skybox_light_dir_world", dir_to_sun_world);
 		set_shared_uniform("common", "skybox_light_radiance", skybox_light_radiance);
 
-		iv2 skybox_res = 512;
-		
-		TextureCube* skybox;
+		static TextureCube skybox;
 		if (std::string( skyboxes[selected_skybox] ).find("sIBL_Archive/") != std::string::npos) {
-			
-			auto equirectangular_hdr = get_texture(skyboxes[selected_skybox], { PF_LRGBF });
-			
-			static auto _skybox = alloc_cube_texture(skybox_res, { PF_LRGBF, NO_MIPMAPS });
-			static auto fbo = create_fbo(_skybox, skybox_res);
 
-			if (selected_skybox_changed) {
+			if (update_skybox) {
+				
+				skybox = alloc_cube_texture(skybox_res, { PF_LRGBF, USE_MIPMAPS });
+
+				auto fbo = create_fbo(skybox, skybox_res);
+
 				auto s = use_shader("equirectangular_to_cubemap");
 				assert(s);
 
+				auto equirectangular_hdr = upload_texture_from_file(skyboxes[selected_skybox], { PF_LRGBF, USE_MIPMAPS });
+
 				//
-				bind_texture(s, "equirectangular", 0, *equirectangular_hdr);
+				bind_texture(s, "equirectangular", 0, equirectangular_hdr);
 
 				draw_entire_cubemap(s, &fbo, skybox_res);
-			}
 
-			skybox = &_skybox;
+				skybox.generate_mipmaps();
+			}
 
 		} else if (selected_skybox > 0) {
 			
-			static cstr prev_selected_skybox = skyboxes[selected_skybox];
-			if (selected_skybox_changed) {
-				evict_texture(prev_selected_skybox);
-				
-				prev_selected_skybox = skyboxes[selected_skybox];
+			if (update_skybox) {
+				skybox = upload_cube_texture_from_multifile(skyboxes[selected_skybox], { PF_SRGB8, USE_MIPMAPS },
+						selected_skybox != 1 ?	std::vector<std::string>{"Left","Right","Down","Up","Front","Back"} :	std::vector<std::string>{"ft","bk","dn","up","rt","lf"});
 			}
-
-			skybox = get_multifile_cubemap(skyboxes[selected_skybox], { PF_SRGB8 },
-					selected_skybox != 1 ?	std::vector<std::string>{"Left","Right","Down","Up","Front","Back"} :	std::vector<std::string>{"ft","bk","dn","up","rt","lf"});
-
 		} else {
 			// create a skybox via shader
 			
-			static auto _skybox = alloc_cube_texture(skybox_res, { PF_LRGBF, NO_MIPMAPS });
-			static auto fbo = create_fbo(_skybox, skybox_res);
-			
-			skybox = &_skybox;
+			static FBO_Cube fbo;
 
-			if (selected_skybox_changed) {
+			if (update_skybox) {
+				skybox = alloc_cube_texture(skybox_res, { PF_LRGBF, USE_MIPMAPS });
+				fbo = create_fbo(skybox, skybox_res);
+			}
+
+			{
 				auto s = use_shader("skybox_cubemap_gen");
 				assert(s);
 
@@ -402,24 +405,113 @@ int main () {
 				set_uniform(s, "dir_to_sun", skyboxes_dir_to_sun_skybox[0]);
 
 				draw_entire_cubemap(s, &fbo, skybox_res);
+
+				skybox.generate_mipmaps();
 			}
 		}
 
-		static iv2 irradiance_res = 32;
-		static TextureCube irradiance = alloc_cube_texture(irradiance_res, { PF_LRGBF, NO_MIPMAPS });
+		// PBR
+		static int irradiance_res = 32;
+		static int prefilter_res = 128;
+		static int brdf_LUT_res = 512;
+		
+		static TextureCube irradiance;
+		static TextureCube prefilter;
+		static Texture2D brdf_LUT;
 		{
-			static auto fbo = create_fbo(irradiance, irradiance_res);
+			bool update_irradiance = frame_i == 0 || update_skybox;
+			bool update_prefilter = frame_i == 0 || update_skybox;
+			bool update_brdf_LUT = frame_i == 0;
 
-			if (selected_skybox_changed) {
+			static int prefilter_sample_count = 512;
+			static int desired_prefilter_levels = 5;
+
+			if (imgui::TreeNodeEx("PBR", ImGuiTreeNodeFlags_CollapsingHeader|ImGuiTreeNodeFlags_DefaultOpen)) {
+				
+				imgui::InputInt("irradiance_res", &irradiance_res);
+				imgui::InputInt("prefilter_res", &prefilter_res);
+				imgui::InputInt("brdf_LUT_res", &brdf_LUT_res);
+
+				imgui::InputInt("prefilter_sample_count", &prefilter_sample_count);
+				imgui::InputInt("desired_prefilter_levels", &desired_prefilter_levels);
+
+				update_irradiance =	imgui::Button("update irradiance_res") || update_irradiance;
+				imgui::SameLine();
+				update_prefilter =	imgui::Button("update prefilter_res") || update_prefilter;
+				imgui::SameLine();
+				update_brdf_LUT =	imgui::Button("update brdf_LUT_res") || update_brdf_LUT;
+
+				imgui::TreePop();
+			}
+			{
+				save->begin("PBR");
+
+				save->value("irradiance_res", &irradiance_res);
+				save->value("prefilter_res", &prefilter_res);
+				save->value("brdf_LUT_res", &brdf_LUT_res);
+
+				save->value("prefilter_sample_count", &prefilter_sample_count);
+				save->value("desired_prefilter_levels", &desired_prefilter_levels);
+
+				save->end();
+			}
+
+			if (update_irradiance) {
+				irradiance = alloc_cube_texture(irradiance_res, { PF_LRGBF, USE_MIPMAPS });
+
+				auto fbo = create_fbo(irradiance, irradiance_res);
+
 				auto s = use_shader("pbr_irradiance_convolve");
 				assert(s);
 
-				bind_texture(s, "source_radiance", 0, *skybox);
+				bind_texture(s, "source_radiance", 0, skybox);
 
 				draw_entire_cubemap(s, &fbo, irradiance_res);
+
+				irradiance.generate_mipmaps();
+			}
+
+			//brdf_LUT = alloc_texture(brdf_LUT_res, { PF_LRGBF, NO_MIPMAPS });
+			
+			if (update_prefilter) {
+				Texture::Options cubemap_opt = { PF_LRGBF, USE_MIPMAPS };
+
+				prefilter = TextureCube::generate(cubemap_opt);
+			
+				auto s = use_shader("pbr_prefilter_specular");
+				assert(s);
+
+				set_uniform(s, "sample_count", prefilter_sample_count);
+				
+				std::vector<iv2> mip_sizes;
+				mipmap_chain(prefilter_res, [&] (int mip, iv2 sz) { mip_sizes.push_back(sz); });
+
+				int prefilter_levels = min(desired_prefilter_levels, (int)mip_sizes.size());
+
+				for (int mip=0; mip<prefilter_levels; ++mip) {
+					iv2 res = mip_sizes[mip];
+
+					prefilter.alloc_mipmap(GL_TEXTURE_CUBE_MAP, res, mip, cubemap_opt);
+				}
+
+				prefilter.set_active_mips(GL_TEXTURE_CUBE_MAP, 0, prefilter_levels -1);
+
+				for (int mip=0; mip<prefilter_levels; ++mip) {
+					iv2 res = mip_sizes[mip];
+
+					auto fbo = create_fbo(prefilter, res, mip);
+
+					flt roughness = (flt)mip / (flt)(max(prefilter_levels -1, 1));
+
+					set_uniform(s, "roughness", roughness);
+
+					bind_texture(s, "source_radiance", 0, skybox);
+
+					draw_entire_cubemap(s, &fbo, res);
+				}
+
 			}
 		}
-		selected_skybox_changed = false;
 
 		//
 		auto draw_scene = [&] (Texture2D* prev_framebuffer) {
@@ -457,8 +549,15 @@ int main () {
 
 				bind_vertex_data(vbo, layout, *s);
 
-				bind_texture(s, "skybox", 4, *skybox);
+				bind_texture(s, "skybox", 4, skybox);
 				bind_texture(s, "irradiance", 5, irradiance);
+				bind_texture(s, "prefilter", 6, prefilter);
+
+				static flt lod = 0;
+				imgui::DragFloat("lod", &lod, 1.0f/50, 0, 10);
+
+				set_uniform(s, "lod", lod);
+				save->value("visualize_prefilter_map_lod", &lod);
 
 				draw_triangles(*s, 0, (int)cube.size());
 			}
@@ -491,7 +590,7 @@ int main () {
 				set_material_normal(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
 				set_material_ao_identity(s);
 
-				bind_texture(s, "skybox", 4, *skybox);
+				bind_texture(s, "skybox", 4, skybox);
 				bind_texture(s, "irradiance", 5, irradiance);
 
 				set_uniform(s, "uv_scale", v2(1));
@@ -508,7 +607,7 @@ int main () {
 					static auto vbo = stream_vertex_data(sphere_mesh.data(), (int)sphere_mesh.size() * Default_Vertex_3d::layout.vertex_size);
 					use_vertex_data(*shad, Default_Vertex_3d::layout, vbo);
 
-					bind_texture(shad, "skybox", 4, *skybox);
+					bind_texture(shad, "skybox", 4, skybox);
 					bind_texture(shad, "irradiance", 5, irradiance);
 
 					{
@@ -713,7 +812,7 @@ int main () {
 				set_material_normal_identity(s);
 				set_material_ao_identity(s);
 
-				bind_texture(s, "skybox", 4, *skybox);
+				bind_texture(s, "skybox", 4, skybox);
 				bind_texture(s, "irradiance", 5, irradiance);
 
 				set_uniform(s, "uv_scale", v2(1));
@@ -786,7 +885,7 @@ int main () {
 					set_material_normal_identity(s);
 					set_material_ao_identity(s);
 
-					bind_texture(s, "skybox", 4, *skybox);
+					bind_texture(s, "skybox", 4, skybox);
 					bind_texture(s, "irradiance", 5, irradiance);
 
 					set_uniform(s, "uv_scale", v2(1));

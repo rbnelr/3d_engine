@@ -32,6 +32,9 @@ public:
 	
 	static cstr typename_ (type_e t) {
 		switch (t) {
+			case STRUCT	:	return "struct";
+			case ARRAY	:	return "array";
+
 			case STRING	:	return "string";
 			
 			case INT_	:	return "int";
@@ -267,11 +270,17 @@ public:
 	}
 
 	bool load (void* val, Value::type_e new_type, Value::mode_e new_mode) {
-		if (type == Value::STRUCT) {
+		if (type != Value::LOADED)
+			return false; // when adding value and then starting app -> trigger_load true, but node was inserted after loading
+		
+		if (new_type == Value::STRUCT || new_type == Value::ARRAY) {
+			if (str.size() != 0) {
+				fprintf(stderr, "Stray value \"%s\" in %s node!\n", str.c_str(), typename_(new_type));
+				return false;
+			}
 			return true; // no value to load
 		} else {
-			assert(type == Value::LOADED);
-
+			
 			if (!parse(new_type, new_mode, str, val)) {
 				fprintf(stderr, "Could not parse \"%s\" into %s!\n", str.c_str(), typename_(new_type));
 				return false;
@@ -593,7 +602,7 @@ struct Save {
 			
 				auto val_str = std::string(cur->value(), cur->value_size());
 			
-				n->val.assign(&val_str, val_str.size() == 0 ? Value::STRUCT : Value::LOADED, Value::DIMENSIONLESS);
+				n->val.assign(&val_str, Value::LOADED, Value::DIMENSIONLESS);
 
 				if (cur->first_node())
 					_from_rapid_xml_recurse(*cur, n.get(), &n->children);
@@ -616,7 +625,7 @@ struct Save {
 		try {
 			xml_doc.parse<0>(&text[0]);
 		} catch (rapidxml::parse_error e) {
-			fprintf(stderr, "rapidxml: \"%s\"", e.what());
+			fprintf(stderr, "rapidxml: \"%s\"\n", e.what());
 			return false;
 		}
 

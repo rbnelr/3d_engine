@@ -140,6 +140,8 @@
     <None Include="shaders\imgui_texture_window_2d.vert" />
     <None Include="shaders\pbr_irradiance_convolve.frag" />
     <None Include="shaders\pbr_irradiance_convolve.vert" />
+    <None Include="shaders\pbr_prefilter_specular.frag" />
+    <None Include="shaders\pbr_prefilter_specular.vert" />
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\skybox.vert" />
     <None Include="shaders\skybox_cubemap_gen.frag" />

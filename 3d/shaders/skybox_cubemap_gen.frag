@@ -10,7 +10,7 @@ uniform	vec3	dir_to_sun;
 uniform	vec3	horiz_col = vec3(100,130,90) / 255;
 uniform	vec3	sky_col = vec3(70,90,250) / 255;
 uniform	vec3	ground_col = vec3(5,5,5) / 255;
-uniform	vec3	sun_col = vec3(10,8,5);
+uniform	vec3	sun_col = vec3(10,8,5) * 20;
 
 vec4 frag () {
 	//return vec4(normalize(vs_dir), 1);

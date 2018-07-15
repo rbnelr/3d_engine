@@ -198,21 +198,48 @@ namespace engine {
 					get_win32_windowplacement();
 
 				GLFWmonitor* fullscreen_monitor = nullptr;
+				GLFWvidmode const* fullscreen_vidmode = nullptr;
 				{
 					int count;
 					GLFWmonitor** monitors = glfwGetMonitors(&count);
 
-					if (monitors)
-						fullscreen_monitor = monitors[0];
-				}
+					flt				min_dist = INF;
 
-				GLFWvidmode const* mode = glfwGetVideoMode(fullscreen_monitor);
+					iv2 wnd_pos;
+					iv2 wnd_sz;
+					glfwGetWindowPos(window, &wnd_pos.x,&wnd_pos.y);
+					glfwGetWindowSize(window, &wnd_sz.x,&wnd_sz.y);
+
+					v2 wnd_center = ((v2)wnd_pos +(v2)wnd_sz) / 2;
+
+					for (int i=0; i<count; ++i) {
+						
+						iv2 pos;
+						glfwGetMonitorPos(monitors[i], &pos.x,&pos.y);
+
+						auto* mode = glfwGetVideoMode(monitors[i]);
+
+						v2 monitor_center = ((v2)pos +(v2)iv2(mode->width,mode->height)) / 2;
+						
+						v2 offs = wnd_center -monitor_center;
+						flt dist = length(offs);
+
+						if (dist < min_dist) {
+							fullscreen_monitor = monitors[i];
+							min_dist = dist;
+
+							fullscreen_vidmode = mode;
+						}
+					}
+
+					assert(fullscreen_monitor);
+				}
 
 				iv2 res = fullscreen_resolution;
 				if (res.x < 0)
-					res = iv2(mode->width, mode->height);
+					res = iv2(fullscreen_vidmode->width, fullscreen_vidmode->height);
 
-				glfwSetWindowMonitor(window, fullscreen_monitor, 0, 0, res.x,res.y, mode->refreshRate);
+				glfwSetWindowMonitor(window, fullscreen_monitor, 0, 0, res.x,res.y, GLFW_DONT_CARE);
 
 			} else { // want windowed
 				assert(!was_windowed);
@@ -221,6 +248,11 @@ namespace engine {
 				auto sz = r.get_size();
 				glfwSetWindowMonitor(window, NULL, r.low.x,r.low.y, sz.x,sz.y, GLFW_DONT_CARE);
 
+				set_win32_windowplacement(); // Still refuses to return to maximized mode ??
+
+				//if (win32_windowplacement.showCmd == SW_MAXIMIZE) {
+				//	glfwMaximizeWindow(window); // Still refuses to return to maximized mode ????
+				//}
 			}
 
 			set_vsync(vsync_mode); // seemingly need to reset vsync sometimes when toggling fullscreen mode

@@ -171,6 +171,8 @@ private:
 		}
 	}
 	
+public:
+
 	void set_active_mips (GLenum target, int first, int last) { // i am not sure that just setting abitrary values for these actually works correctly
 		glBindTexture(target, handle);
 
@@ -178,8 +180,6 @@ private:
 		glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, last);
 	}
 
-public:
-	
 	void generate_mipmaps (GLenum target) {
 		glBindTexture(target, handle);
 
@@ -299,20 +299,30 @@ enum texture_type_e {
 
 class Texture2D : public Texture {
 	using Texture::generate;
+	using Texture::generate_mipmaps;
 public:
 	static Texture2D generate (Texture::Options o) {
 		Texture2D tex;
 		tex.generate(GL_TEXTURE_2D, o);
 		return tex;
 	}
+
+	void generate_mipmaps () {
+		generate_mipmaps(GL_TEXTURE_2D);
+	}
 };
 class TextureCube : public Texture {
 	using Texture::generate;
+	using Texture::generate_mipmaps;
 public:
 	static TextureCube generate (Texture::Options o) {
 		TextureCube tex;
 		tex.generate(GL_TEXTURE_CUBE_MAP, o);
 		return tex;
+	}
+
+	void generate_mipmaps () {
+		generate_mipmaps(GL_TEXTURE_CUBE_MAP);
 	}
 };
 
@@ -396,7 +406,7 @@ Texture2D upload_texture_from_file (std::string const& filepath, Texture::Option
 
 	free(pixels);
 
-	*out_size_px = size_px;
+	if (out_size_px) *out_size_px = size_px;
 	return tex;
 }
 
@@ -429,10 +439,10 @@ TextureCube upload_cube_texture_from_multifile (std::string const& name_format, 
 	}
 
 	if (o.mipmap_mode == USE_MIPMAPS) {
-		tex.generate_mipmaps(GL_TEXTURE_CUBE_MAP);
+		tex.generate_mipmaps();
 	}
 
-	*out_size_px = prev_size_px;
+	if (out_size_px) *out_size_px = prev_size_px;
 	return tex;
 }
 

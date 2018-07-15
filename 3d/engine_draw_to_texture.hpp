@@ -19,7 +19,7 @@ public:
 			glDeleteRenderbuffers(1, &depth_renderbuffer);
 	}
 
-	static FBO create (Texture const& color_target, iv2 size_px, int cubemap_face=-1) {
+	static FBO create (Texture const& color_target, iv2 size_px, int mip=0, int cubemap_face=-1) {
 		FBO fbo;
 		glGenFramebuffers(1, &fbo.handle);
 
@@ -34,9 +34,9 @@ public:
 		
 		//
 		if (cubemap_face == -1)
-			glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_target.get_handle(), 0);
+			glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_target.get_handle(), mip);
 		else
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X +cubemap_face, color_target.get_handle(), 0);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X +cubemap_face, color_target.get_handle(), mip);
 
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo.depth_renderbuffer);
 
@@ -65,11 +65,11 @@ void swap (FBO& l, FBO& r) {
 class FBO_Cube {
 	FBO	faces[6];
 public:
-	static FBO_Cube create (TextureCube const& color_target, iv2 size_px) {
+	static FBO_Cube create (TextureCube const& color_target, iv2 size_px, int mip=0) {
 		FBO_Cube fbo;
 
 		for (int face=0; face<6; ++face) {
-			fbo.faces[face] = FBO::create(color_target, size_px, face);
+			fbo.faces[face] = FBO::create(color_target, size_px, mip, face);
 		}
 
 		return fbo;
@@ -88,8 +88,8 @@ public:
 FBO create_fbo (Texture2D const& color_target, iv2 size_px) {
 	return FBO::create(color_target, size_px);
 }
-FBO_Cube create_fbo (TextureCube const& color_target, iv2 size_px) {
-	return FBO_Cube::create(color_target, size_px);
+FBO_Cube create_fbo (TextureCube const& color_target, iv2 size_px, int mip=0) {
+	return FBO_Cube::create(color_target, size_px, mip);
 }
 
 void draw_to_screen (iv2 screen_size) {

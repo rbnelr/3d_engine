@@ -25,7 +25,7 @@ TODO:
 
 implement pbr ibl
 
-
+BUG: shader reloading: filenames of changed files start overwriting each other ??
 
 common textures like common uniforms (what do do with texture units?)
 

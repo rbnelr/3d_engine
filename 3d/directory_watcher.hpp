@@ -14,6 +14,8 @@ class Directory_Watcher {
 	char buf[1024];
 
 	bool do_ReadDirectoryChanges () {
+		memset(buf, 0, sizeof(buf)); // ReadDirectoryChangesW does not null terminate the filenames properly ?? This seems to fix the problem for now (filenames were overwriting each other aaa.txt overwrote the previous filename bbbbbbbbbbb.txt, which then read aaa.txtbbbb.txt)
+
 		auto res = ReadDirectoryChangesW(dir, buf,sizeof(buf), TRUE,
 											FILE_NOTIFY_CHANGE_FILE_NAME|FILE_NOTIFY_CHANGE_DIR_NAME|FILE_NOTIFY_CHANGE_SIZE|FILE_NOTIFY_CHANGE_LAST_WRITE|FILE_NOTIFY_CHANGE_CREATION,
 											NULL, &ovl, NULL);
@@ -61,7 +63,7 @@ public:
 				return;
 		} else {
 
-			char* cur = buf;
+			char const* cur = buf;
 
 			for (;;) {
 				auto remaining_bytes = (uptr)bytes_returned -(uptr)(cur -buf);
