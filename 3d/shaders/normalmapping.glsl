@@ -16,9 +16,9 @@ vec3 normalmapping (vec3 normal_map_val, vec3 vertex_normal_cam, vec4 tangent_ca
 	return normal_cam;
 }
 
-uniform sampler2D	height_tex;
-uniform	float		height_mult;
-uniform	float		height_offs;
+uniform sampler2D	displacement_tex;
+uniform	float		displacement_size;
+uniform	int			displacement_layers_count = 10;
 
 vec2 parallax_mapping (vec3 vertex_normal_cam, vec4 tangent_cam, vec2 real_uv, vec3 frag_pos_cam) {
 	
@@ -33,13 +33,31 @@ vec2 parallax_mapping (vec3 vertex_normal_cam, vec4 tangent_cam, vec2 real_uv, v
 	mat3 cam_to_tangent = transpose(tangent_to_cam);
 
 	vec3 frag_pos_tang = vec3(0);
-	vec3 cam_pos_tang = cam_to_tangent * normalize(-frag_pos_cam);
+	vec3 view_dir = cam_to_tangent * normalize(-frag_pos_cam);
 
-	float	height = texture(height_tex, real_uv).r * height_mult + height_offs;
+	vec2 uv = real_uv;
+	{
+		float layers_depth = abs(displacement_size);
+		float layer_depth = layers_depth / float(displacement_layers_count);
 
-	vec2 offs = cam_pos_tang.xy / vec2(cam_pos_tang.z) * vec2(height);
+		vec2 uv_step = view_dir.xy / view_dir.zz * layer_depth;
 
-	vec2 uv = real_uv + offs;
+		float ray_depth = 0.0;
 
+		for (;;) {
+			
+			float surface_depth = texture(displacement_tex, uv).r;
+			if (displacement_size < 0.0)
+				surface_depth = 1.0 - surface_depth;
+			surface_depth *= layers_depth;
+
+			if (ray_depth >= surface_depth)
+				break;
+
+			uv -= uv_step;
+			ray_depth += layer_depth;
+		}
+		
+	}
 	return uv;
 }

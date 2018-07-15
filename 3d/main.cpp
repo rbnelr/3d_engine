@@ -56,16 +56,13 @@ void set_material_ao_identity(Shader* s) {
 	set_uniform(s,	"ao_offs", 1.0f);
 }
 
-void set_material_height(Shader* s, Texture2D const& tex, flt depth, flt offs) {
-	bind_texture(s,	"height_tex", 5, tex);
-	
-	set_uniform(s,	"height_mult", depth); // depth is depth "units" ? what even are the units in this?
-	set_uniform(s,	"height_offs", map(offs, 0,1, -abs(depth),0)); // offs=0: go from [-depth,0]  offs=1: go from [0,+depth] 
+void set_material_displacement(Shader* s, Texture2D const& tex, flt displacement_size) {
+	bind_texture(s,	"displacement_tex", 5, tex);
+	set_uniform(s,	"displacement_size", displacement_size);
 }
-void set_material_height_identity(Shader* s) {
-	bind_texture(s,	"height_tex", 5, *tex_black());
-	set_uniform(s,	"height_mult", 0.0f);
-	set_uniform(s,	"height_offs", 0.0f);
+void set_material_displacement_identity(Shader* s) {
+	bind_texture(s,	"displacement_tex", 5, *tex_black());
+	set_uniform(s,	"displacement_size", 0.0f);
 }
 
 std::string shad_default_2d =			"default_2d";
@@ -448,6 +445,8 @@ int main () {
 			static int desired_prefilter_levels = 5;
 			static int brdf_LUT_sample_count = 1024;
 
+			static int displacement_layers_count = 10;
+
 			if (imgui::TreeNodeEx("PBR", ImGuiTreeNodeFlags_CollapsingHeader|ImGuiTreeNodeFlags_DefaultOpen)) {
 				
 				imgui::InputInt("irradiance_res", &irradiance_res);
@@ -464,6 +463,8 @@ int main () {
 				imgui::SameLine();
 				update_brdf_LUT =	imgui::Button("update brdf_LUT_res") || update_brdf_LUT;
 
+				imgui::DragInt("displacement_layers_count", &displacement_layers_count, 1.0f / 50, 0);
+
 				imgui::TreePop();
 			}
 			{
@@ -477,8 +478,12 @@ int main () {
 				save->value("desired_prefilter_levels", &desired_prefilter_levels);
 				save->value("brdf_LUT_sample_count", &brdf_LUT_sample_count);
 
+				save->value("displacement_layers_count", &displacement_layers_count);
+
 				save->end();
 			}
+
+			set_shared_uniform("displacement", "layers_count", displacement_layers_count);
 
 			if (update_irradiance) {
 				irradiance = alloc_cube_texture(irradiance_res, { PF_LRGBF, USE_MIPMAPS });
@@ -619,103 +624,6 @@ int main () {
 			glEnable(GL_CULL_FACE);
 			glDisable(GL_SCISSOR_TEST);
 
-			static std::vector<Default_Vertex_3d> quad;
-			if (quad.size() == 0) {
-				for (auto p : quad_verts) {
-					Default_Vertex_3d v;
-					v.pos_model = v3(p -0.5f, +0.5f);
-					v.normal_model = v3(0,0,1);
-					v.tangent_model = v4(1,0,0,1);
-					v.uv = p;
-					v.col_lrgba = srgba8(230).to_lrgb();
-					quad.push_back(v);
-				}
-			}
-
-			{
-				inline_shader("test.vert", R"_SHAD(
-						$include "common.vert"
-					
-						in		vec3	pos_model;
-						in		vec2	uv;
-					
-						out		vec2	vs_uv;
-						
-						uniform	mat4	model_to_world;
-						uniform	mat4	cam_world_to_cam;
-						uniform	mat4	cam_cam_to_clip;
-
-						void vert () {
-							gl_Position =		cam_cam_to_clip * cam_world_to_cam * model_to_world * vec4(pos_model, 1);
-							vs_uv =				uv;
-						}
-					)_SHAD");
-				inline_shader("test.frag",R"_SHAD(
-						$include "common.frag"
-					
-						in		vec2	vs_uv;
-					
-						uniform sampler2D tex;
-					
-						vec4 frag () {
-							return texture(tex, vs_uv);
-						}
-					)_SHAD");
-
-
-				auto s = use_shader("test");
-				assert(s);
-				
-				bind_texture(s, "tex", 0, brdf_LUT);
-
-				static std::vector<Default_Vertex_3d> quad;
-				if (quad.size() == 0) {
-					for (auto p : quad_verts) {
-						Default_Vertex_3d v;
-						v.pos_model = v3(p -0.5f, +0.5f);
-						v.uv = p;
-						quad.push_back(v);
-					}
-				}
-
-				static VBO vbo = stream_vertex_data(quad.data(), (int)quad.size() * (int)sizeof(Default_Vertex_3d));
-				use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
-
-				set_uniform(s, "model_to_world", translate4(v3(0,0,5)));
-
-				draw_triangles(*s, 0, (int)quad.size());
-			}
-
-			static bool draw_cerberus = true;
-			imgui::Checkbox("draw_cerberus", &draw_cerberus);
-			save->value("draw_cerberus", &draw_cerberus);
-			if (draw_cerberus) {
-				auto cerberus = mesh_manager.get_mesh("assets/Cerberus_by_Andrew_Maximov/Cerberus_LP.FBX");
-				
-				auto s = use_shader(shad_default_3d);
-				assert(s);
-
-				static VBO vbo = stream_vertex_data(cerberus->vbo_data.data(), (int)cerberus->vbo_data.size() * (int)sizeof(Default_Vertex_3d));
-				use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
-
-				set_uniform(s, "model_to_world", translate4(v3(+5,0,0)) * scale4(1.0f / 50));
-
-				set_material_albedo(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_A.tga", { PF_SRGB8 }));
-				set_material_metallic(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_M.tga", { PF_LRGB8 }));
-				set_material_roughness(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_R.tga", { PF_LRGB8 }));
-				set_material_normal(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
-				set_material_ao_identity(s);
-				set_material_height_identity(s);
-
-				bind_texture(s, "irradiance", 6, irradiance);
-				bind_texture(s, "prefilter", 7, prefilter);
-				bind_texture(s, "brdf_LUT", 8, brdf_LUT);
-
-				set_uniform(s, "uv_scale", v2(1));
-
-				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
-			}
-
 			static auto sphere_mesh = gen_sphere();
 			
 			{
@@ -754,11 +662,13 @@ int main () {
 								set_material_roughness(shad,	(flt)r / (flt)(roughness_steps -1));
 								set_material_normal_identity(shad);
 								set_material_ao_identity(shad);
-								set_material_height_identity(shad);
+								set_material_displacement_identity(shad);
 
 								bind_texture(shad, "irradiance", 6, irradiance);
 								bind_texture(shad, "prefilter", 7, prefilter);
 								bind_texture(shad, "brdf_LUT", 8, brdf_LUT);
+
+								use_vertex_data(*shad, Default_Vertex_3d::layout, vbo);
 
 								draw_triangles(*shad, 0,(int)sphere_mesh.size());
 							}
@@ -784,7 +694,6 @@ int main () {
 						bool		normal_flip_y = true;
 
 						flt			height_depth = 0.1f;
-						flt			height_offs = 0;
 
 						v3			albedo_srgb = 1;
 						flt			metallic;
@@ -831,7 +740,6 @@ int main () {
 							imgui::InputText_str("height_tex",		&height_tex);
 
 							imgui::DragFloat("height_depth", &height_depth, 0.1f / 100);
-							imgui::DragFloat("height_offs", &height_offs, 0.1f / 100);
 
 							imgui::ColorEdit3("albedo", &albedo_srgb.x);
 							imgui::SliderFloat("metallic", &metallic, 0,1);
@@ -860,7 +768,6 @@ int main () {
 							save->value("height_tex",		&height_tex);
 
 							save->value("height_depth",		&height_depth);
-							save->value("height_offs",		&height_offs);
 							
 							save->value("albedo_srgb",		&albedo_srgb);
 							save->value("metallic",			&metallic);
@@ -921,8 +828,8 @@ int main () {
 						if (s.ao_tex.size() > 0)		set_material_ao(shad, *get_texture(			s.folder + s.ao_tex, { PF_LRGB8 }));
 						else							set_material_ao_identity(shad);
 
-						if (s.height_tex.size() > 0)	set_material_height(shad, *get_texture(		s.folder + s.height_tex, { PF_LRGB8 }), s.height_depth, s.height_offs);
-						else							set_material_height_identity(shad);
+						if (s.height_tex.size() > 0)	set_material_displacement(shad, *get_texture(		s.folder + s.height_tex, { PF_LRGB8 }), s.height_depth);
+						else							set_material_displacement_identity(shad);
 
 						bind_texture(shad, "irradiance", 6, irradiance);
 						bind_texture(shad, "prefilter", 7, prefilter);
@@ -939,12 +846,52 @@ int main () {
 
 							set_uniform(shad, "uv_scale", s.uv_scale * v2(0.5f,1));
 
+							std::vector<Default_Vertex_3d> quad;
+							for (auto p : quad_verts) {
+								Default_Vertex_3d v;
+								v.pos_model = v3(p -0.5f, +0.5f);
+								v.normal_model = v3(0,0,1);
+								v.tangent_model = v4(1,0,0,1);
+								v.uv = p;
+								quad.push_back(v);
+							}
+
 							draw_stream_triangles(*shad, quad);
 						}
 					}
 				}
 			}
 			imgui::Separator();
+
+			static bool draw_cerberus = true;
+			imgui::Checkbox("draw_cerberus", &draw_cerberus);
+			save->value("draw_cerberus", &draw_cerberus);
+			if (draw_cerberus) {
+				auto cerberus = mesh_manager.get_mesh("assets/Cerberus_by_Andrew_Maximov/Cerberus_LP.FBX");
+
+				auto s = use_shader(shad_default_3d);
+				assert(s);
+
+				static VBO vbo = stream_vertex_data(cerberus->vbo_data.data(), (int)cerberus->vbo_data.size() * (int)sizeof(Default_Vertex_3d));
+				use_vertex_data(*s, Default_Vertex_3d::layout, vbo);
+
+				set_uniform(s, "model_to_world", translate4(v3(+5,0,0)) * scale4(1.0f / 50));
+
+				set_material_albedo(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_A.tga", { PF_SRGB8 }));
+				set_material_metallic(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_M.tga", { PF_LRGB8 }));
+				set_material_roughness(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_R.tga", { PF_LRGB8 }));
+				set_material_normal(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
+				set_material_ao_identity(s);
+				set_material_displacement_identity(s);
+
+				bind_texture(s, "irradiance", 6, irradiance);
+				bind_texture(s, "prefilter", 7, prefilter);
+				bind_texture(s, "brdf_LUT", 8, brdf_LUT);
+
+				set_uniform(s, "uv_scale", v2(1));
+
+				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
+			}
 
 			static bool draw_terrain = 0;
 			imgui::Checkbox("draw_terrain", &draw_terrain);
@@ -964,7 +911,7 @@ int main () {
 				set_material_roughness(s,	0.8f);
 				set_material_normal_identity(s);
 				set_material_ao_identity(s);
-				set_material_height_identity(s);
+				set_material_displacement_identity(s);
 
 				bind_texture(s, "irradiance", 6, irradiance);
 				bind_texture(s, "prefilter", 7, prefilter);
@@ -976,6 +923,17 @@ int main () {
 			}
 
 			for (int face=0; face<6; ++face) {
+
+				std::vector<Default_Vertex_3d> quad;
+				for (auto p : quad_verts) {
+					Default_Vertex_3d v;
+					v.pos_model = v3(p -0.5f, +0.5f);
+					v.normal_model = v3(0,0,1);
+					v.tangent_model = v4(1,0,0,1);
+					v.uv = p;
+					v.col_lrgba = srgba8(230).to_lrgb();
+					quad.push_back(v);
+				}
 
 				auto s = use_shader(shad_default_3d);
 				if (s) {
@@ -1027,7 +985,7 @@ int main () {
 					set_material_roughness(s,	0.5f);
 					set_material_normal_identity(s);
 					set_material_ao_identity(s);
-					set_material_height_identity(s);
+					set_material_displacement_identity(s);
 
 					bind_texture(s, "irradiance", 6, irradiance);
 					bind_texture(s, "prefilter", 7, prefilter);

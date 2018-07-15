@@ -1,8 +1,8 @@
 <test>blah</test>
 <draw_wireframe>false</draw_wireframe>
 <cam>
-	<pos_world>10.6673, 8.87095, 3.10339</pos_world>
-	<altazimuth>8.52636 deg, 79.6803 deg, 0 deg</altazimuth>
+	<pos_world>11.3049, 6.9947, 3.22652</pos_world>
+	<altazimuth>-16.5531 deg, 71.1605 deg, 0 deg</altazimuth>
 	<vfov>70 deg</vfov>
 	<clip_near>0.033</clip_near>
 	<clip_far>1024</clip_far>
@@ -93,7 +93,7 @@
 		<normal_flip_y>true</normal_flip_y>
 		<ao_tex>blocksrough_ambientocclusion.png</ao_tex>
 		<height_tex>blocksrough_height.png</height_tex>
-		<height_depth>0.044</height_depth>
+		<height_depth>-0.067</height_depth>
 		<height_offs>0</height_offs>
 	</sphere>
 	<sphere>
@@ -253,7 +253,7 @@
 		<roughness>0.2</roughness>
 		<uv_scale>4, 2</uv_scale>
 		<height_tex>spaced-tiles1-height.png</height_tex>
-		<height_depth>0.041</height_depth>
+		<height_depth>-0.076</height_depth>
 		<height_offs>0</height_offs>
 	</sphere>
 	<sphere>
@@ -273,7 +273,7 @@
 		<roughness>0.2</roughness>
 		<uv_scale>4, 2</uv_scale>
 		<height_tex>woodframe1-height.png</height_tex>
-		<height_depth>0.1</height_depth>
+		<height_depth>-0.156</height_depth>
 		<height_offs>0</height_offs>
 	</sphere>
 	<sphere>
@@ -293,7 +293,7 @@
 		<roughness>0.2</roughness>
 		<uv_scale>4, 2</uv_scale>
 		<height_tex>stonewall-height2.png</height_tex>
-		<height_depth>0.029</height_depth>
+		<height_depth>-0.066</height_depth>
 		<height_offs>0</height_offs>
 	</sphere>
 	<sphere>
@@ -309,7 +309,7 @@
 		<normal_flip_y>true</normal_flip_y>
 		<ao_tex/>
 		<height_tex>toy_box_disp.png</height_tex>
-		<height_depth>-0.087</height_depth>
+		<height_depth>0.087</height_depth>
 		<height_offs>0</height_offs>
 		<albedo_srgb>1, 1, 1</albedo_srgb>
 		<metallic>0</metallic>
@@ -325,6 +325,7 @@
 	<prefilter_sample_count>1024</prefilter_sample_count>
 	<desired_prefilter_levels>10</desired_prefilter_levels>
 	<brdf_LUT_sample_count>4096</brdf_LUT_sample_count>
+	<displacement_layers_count>10</displacement_layers_count>
 </PBR>
 <visualize_prefilter_map_lod>0.46</visualize_prefilter_map_lod>
 
