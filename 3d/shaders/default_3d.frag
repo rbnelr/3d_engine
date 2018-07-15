@@ -26,6 +26,12 @@ uniform float		roughness_mult;
 uniform float		roughness_offs;
 
 uniform sampler2D	normal_tex;
+uniform	vec3		normal_mult;
+uniform	vec3		normal_offs;
+
+uniform sampler2D	ao_tex;
+uniform	float		ao_mult;
+uniform	float		ao_offs;
 
 //
 uniform	mat3 common_world_to_skybox;
@@ -102,7 +108,7 @@ float geometry_smith (float NV, float NL, float roughness) {
     return ggx1 * ggx2;
 }
 
-vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, vec3 frag_to_light, vec3 frag_to_cam, vec3 normal) { // all in cam space
+vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, float ao, vec3 frag_to_light, vec3 frag_to_cam, vec3 normal) { // all in cam space
 	vec3 N = normalize(normal);
 	vec3 V = normalize(frag_to_cam);
 	vec3 L = normalize(frag_to_light);
@@ -128,7 +134,7 @@ vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, vec3 frag
 		float denominator = 4.0 * NV * NL;
 		vec3 specular     = numerator / max(denominator, 0.001);  
 
-		light_out += (k_diffuse * albedo / PI + specular) * common_skybox_light_radiance * NL;
+		light_out += (k_diffuse * albedo / PI + specular) * common_skybox_light_radiance * NL * ao;
 	}
 	{ // ibl diffuse
 		vec3 F = fresnel_roughness(NV, albedo, metallic, roughness);
@@ -139,7 +145,7 @@ vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, vec3 frag
 		
 		vec3 irradiance_sample = texture(irradiance, common_cubemap_z_up_to_gl_ori * common_world_to_skybox * mat3(cam_cam_to_world) * N).rgb;
 
-		light_out += k_diffuse * irradiance_sample * albedo;
+		light_out += k_diffuse * irradiance_sample * albedo * ao;
 	}
 
 	return light_out;
@@ -150,7 +156,8 @@ vec4 frag () {
 	vec4	 albedo_sample =	(texture(albedo_tex, vs_uv)			* albedo_mult		+ albedo_offs) * vs_col;
 	float	 metallic_sample =	 texture(metallic_tex, vs_uv).r		* metallic_mult		+ metallic_offs;
 	float	 roughness_sample =	 texture(roughness_tex, vs_uv).r	* roughness_mult	+ roughness_offs;
-	vec3	 normal_sample =	 texture(normal_tex, vs_uv).rgb;
+	vec3	 normal_sample =	 texture(normal_tex, vs_uv).rgb		* normal_mult		+ normal_offs;
+	float	 ao_sample =		 texture(ao_tex, vs_uv).r			* ao_mult			+ ao_offs;
 	
 	vec3 albedo = albedo_sample.rgb;
 	float alpha = albedo_sample.a;
@@ -162,7 +169,7 @@ vec4 frag () {
 	
 	vec3 normal = normalmapping(normal_sample, vertex_normal, tangent);
 	
-	vec3 radiance =  cook_torrance_BRDF(albedo, metallic_sample, roughness_sample, frag_to_light, frag_to_cam, normal);
+	vec3 radiance =  cook_torrance_BRDF(albedo, metallic_sample, roughness_sample, ao_sample, frag_to_light, frag_to_cam, normal);
 	
 	//radiance += texture(skybox, common_cubemap_z_up_to_gl_ori * common_world_to_skybox * mat3(cam_cam_to_world) * reflect(-frag_to_cam, normal)).rgb;
 	

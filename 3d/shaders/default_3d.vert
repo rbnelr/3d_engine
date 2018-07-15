@@ -17,6 +17,8 @@ uniform	mat4	cam_world_to_cam;
 
 uniform mat4	model_to_world;
 
+uniform	vec2	uv_scale;
+
 void vert () {
 	mat4 model_to_cam = cam_world_to_cam * model_to_world;
 
@@ -25,6 +27,6 @@ void vert () {
 	vs_pos_cam =		(model_to_cam * vec4(pos_model, 1)).xyz;
 	vs_normal_cam =		      mat3(model_to_cam) * normal_model;
 	vs_tangent_cam =	vec4( mat3(model_to_cam) * tangent_model.xyz, tangent_model.w);
-	vs_uv =				uv;
+	vs_uv =				uv * uv_scale;
 	vs_col =			col_lrgba;
 }

@@ -51,13 +51,13 @@ namespace math {
 	#define RAD_TO_DEGd	57.295779513082320876798154814105	// PI/180
 	#define RAD_TO_DEG	57.295779513082320876798154814105f
 
-	INL constexpr f32 to_rad (f32 ang) {	return ang * DEG_TO_RAD; }
-	INL constexpr f32 deg (f32 ang) {		return ang * DEG_TO_RAD; }
-	INL constexpr f32 to_deg (f32 ang) {	return ang * RAD_TO_DEG; }
+	INL constexpr f32 to_rad (f32 deg) {	return deg * DEG_TO_RAD; }
+	INL constexpr f32 deg (f32 deg) {		return deg * DEG_TO_RAD; } // degress "literal", converts degrees to radiants
+	INL constexpr f32 to_deg (f32 rad) {	return rad * RAD_TO_DEG; }
 
-	INL constexpr f64 to_rad (f64 ang) {	return ang * DEG_TO_RADd; }
-	INL constexpr f64 degd (f64 ang) {		return ang * DEG_TO_RADd; }
-	INL constexpr f64 to_deg (f64 ang) {	return ang * RAD_TO_DEGd; }
+	INL constexpr f64 to_rad (f64 deg) {	return deg * DEG_TO_RADd; }
+	INL constexpr f64 degd (f64 deg) {		return deg * DEG_TO_RADd; } // degress "literal", converts degrees to radiants
+	INL constexpr f64 to_deg (f64 rad) {	return rad * RAD_TO_DEGd; }
 
 	#define RAD_360	deg(360)
 	#define RAD_180	deg(180)

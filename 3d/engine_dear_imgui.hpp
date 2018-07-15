@@ -97,8 +97,6 @@ namespace engine {
 		inp->block_mouse =			io.WantCaptureMouse; // correctly handles dragging onto and off of the imgui windows
 		inp->blocked_by_typing =	io.WantTextInput;
 
-		//printf("block_keyboard %d block_mouse %d\n", inp->block_keyboard, inp->block_mouse);
-
 		bool use_input = gui_input_enabled && imgui_enabled;
 
 		if (!use_input) {

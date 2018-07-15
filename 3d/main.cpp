@@ -36,11 +36,24 @@ void set_material_roughness(Shader* s, flt val) {
 	set_uniform(s,	"roughness_offs", val);
 }
 
-void set_material_normal(Shader* s, Texture2D const& tex) {
+void set_material_normal(Shader* s, Texture2D const& tex, bool flip_y=false) { // flip_y: unreal engine has y flipped in comparison to my approach (and unity and blender)
 	bind_texture(s,	"normal_tex", 3, tex);
+	set_uniform(s,	"normal_mult", flip_y ? v3(1,-1,1) : v3(1));
+	set_uniform(s,	"normal_offs", flip_y ? v3(0,+1,0) : v3(0));
 }
 void set_material_normal_identity(Shader* s) {
 	bind_texture(s,	"normal_tex", 3, *tex_identity_normal());
+}
+
+void set_material_ao(Shader* s, Texture2D const& tex) {
+	bind_texture(s,	"ao_tex", 4, tex);
+	set_uniform(s,	"ao_mult", 1.0f);
+	set_uniform(s,	"ao_offs", 0.0f);
+}
+void set_material_ao_identity(Shader* s) {
+	bind_texture(s,	"ao_tex", 4, *tex_black());
+	set_uniform(s,	"ao_mult", 0.0f);
+	set_uniform(s,	"ao_offs", 1.0f);
 }
 
 std::string shad_default_2d =			"default_2d";
@@ -105,7 +118,7 @@ struct Camera {
 	}
 
 	void imgui (Save* save, cstr name) {
-		if (imgui::CollapsingHeader("cam")) {
+		if (imgui::TreeNodeEx("cam", ImGuiTreeNodeFlags_CollapsingHeader)) {
 
 			imgui::DragFloat3("pos_world", &pos_world.x, 1.0f / 100);
 			imgui::DragFloat3("altazimuth", &altazimuth.x, 1.0f / 100);
@@ -117,7 +130,8 @@ struct Camera {
 
 			imgui::DragFloat("base_speed", &base_speed, 1.0f / 10);
 			imgui::DragFloat("fast_mult", &fast_mult, 1.0f / 10);
-			
+
+			imgui::TreePop();
 		}
 
 		save->begin("cam");
@@ -164,8 +178,8 @@ std::vector<Default_Vertex_3d> gen_sphere (flt radius=1, iv2 lonlat_steps=iv2(64
 		flt lat0 = (flt)(lat +0) / (flt)lonlat_steps.y;
 		flt lat1 = (flt)(lat +1) / (flt)lonlat_steps.y;
 
-		m3 lat_rot0 = rotate3_Y(lat0 * deg(180));
-		m3 lat_rot1 = rotate3_Y(lat1 * deg(180));
+		m3 lat_rot0 = rotate3_Y(-lat0 * deg(180)); // rotate from -z to +x
+		m3 lat_rot1 = rotate3_Y(-lat1 * deg(180));
 
 		for (int lon=0; lon<lonlat_steps.x; ++lon) {
 
@@ -248,9 +262,6 @@ int main () {
 		set_shared_uniform("common", "cubemap_gl_ori_to_z_up", rotate3_X(-deg(90)));
 		set_shared_uniform("common", "cubemap_z_up_to_gl_ori", rotate3_X(+deg(90)));
 
-		std::string test = "blah";
-		save->value("test", &test);
-
 		static bool draw_wireframe = false;
 		save->value("draw_wireframe", &draw_wireframe);
 		imgui::Checkbox("draw_wireframe", &draw_wireframe);
@@ -259,6 +270,7 @@ int main () {
 
 		set_shared_uniform("wireframe", "enable", draw_wireframe);
 
+		// Camera
 		static Camera cam;
 
 		cam.control(inp, dt);
@@ -273,6 +285,7 @@ int main () {
 		set_shared_uniform("cam", "cam_to_world", cam_to_world.m4());
 		set_shared_uniform("cam", "cam_to_clip", cam_to_clip);
 		
+		// Skybox
 		static int selected_skybox = 7;
 		static cstr skyboxes[] = {
 			"generated skybox",
@@ -287,9 +300,24 @@ int main () {
 			"assets/sIBL_Archive/Arches_E_PineTree/Arches_E_PineTree_3k.hdr",
 			"assets/sIBL_Archive/Chiricahua_Plaza/GravelPlaza_REF.hdr",
 		};
+		
+		static flt rotate_skybox = 0;
+		
 		static bool selected_skybox_changed = true;
-		selected_skybox_changed = imgui::Combo("skybox", &selected_skybox, skyboxes, ARRLEN(skyboxes)) || selected_skybox_changed;
-		save->value("selected_skybox", &selected_skybox);
+		if (imgui::TreeNodeEx("skybox", ImGuiTreeNodeFlags_CollapsingHeader|ImGuiTreeNodeFlags_DefaultOpen)) {
+			
+			selected_skybox_changed = imgui::Combo("skybox", &selected_skybox, skyboxes, ARRLEN(skyboxes)) || selected_skybox_changed;
+			save->value("selected_skybox", &selected_skybox);
+
+			imgui::SliderAngle("rotate_skybox", &rotate_skybox, +180, -180);
+			save->angle("rotate_skybox", &rotate_skybox);
+
+			imgui::TreePop();
+		}
+		imgui::Separator();
+
+		m3 world_to_skybox = rotate3_Z(-rotate_skybox);
+		m3 skybox_to_world = rotate3_Z(rotate_skybox);
 
 		v3 skyboxes_dir_to_sun_skybox[] = {
 			rotate3_Z(deg(  85)) * rotate3_X(deg( 30)) * v3(0,1,0),
@@ -316,13 +344,6 @@ int main () {
 			{ srgb8(255,248,236), 6.00f },
 		};
 
-		static flt rotate_skybox = 0;
-		imgui::SliderAngle("rotate_skybox", &rotate_skybox, +180, -180);
-		save->angle("rotate_skybox", &rotate_skybox);
-
-		m3 world_to_skybox = rotate3_Z(-rotate_skybox);
-		m3 skybox_to_world = rotate3_Z(rotate_skybox);
-		
 		set_shared_uniform("common", "world_to_skybox", world_to_skybox);
 
 		v3 dir_to_sun_world = skybox_to_world * skyboxes_dir_to_sun_skybox[selected_skybox];
@@ -400,6 +421,7 @@ int main () {
 		}
 		selected_skybox_changed = false;
 
+		//
 		auto draw_scene = [&] (Texture2D* prev_framebuffer) {
 			
 			if (draw_wireframe) {
@@ -467,9 +489,12 @@ int main () {
 				set_material_metallic(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_M.tga", { PF_LRGB8 }));
 				set_material_roughness(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_R.tga", { PF_LRGB8 }));
 				set_material_normal(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
+				set_material_ao_identity(s);
 
 				bind_texture(s, "skybox", 4, *skybox);
 				bind_texture(s, "irradiance", 5, irradiance);
+
+				set_uniform(s, "uv_scale", v2(1));
 
 				draw_triangles(*s, 0, (int)cerberus->vbo_data.size());
 			}
@@ -505,11 +530,14 @@ int main () {
 
 								set_uniform(shad, "model_to_world", model_to_world.m4());
 
+								set_uniform(shad, "uv_scale", v2(1));
+
 								set_material_albedo(shad, lrgba(to_linear(srgb_albedo), 1));
 
 								set_material_metallic(shad,	(flt)m / (flt)(metallic_steps -1));
 								set_material_roughness(shad,	(flt)r / (flt)(roughness_steps -1));
 								set_material_normal_identity(shad);
+								set_material_ao_identity(shad);
 
 								draw_triangles(*shad, 0,(int)sphere_mesh.size());
 							}
@@ -519,29 +547,33 @@ int main () {
 					struct Sphere {
 						std::string	name;
 
-						v3			pos;
-						flt			ori;
-						flt			radius;
+						v3			pos = 0;
+						flt			ori = 0;
+						flt			radius = 0.5f;
 
 
-						std::string	folder;
+						std::string	folder = "assets/";
 						// if empty use values below (identity for normal)
 						std::string	albedo_tex;
 						std::string	metallic_tex;
 						std::string	roughness_tex;
 						std::string	normal_tex;
+						std::string	ao_tex;
+						bool		normal_flip_y = true;
 
-						v3			albedo_srgb;
+						v3			albedo_srgb = 1;
 						flt			metallic;
-						flt			roughness;
+						flt			roughness = 0.2f;
 
-						bool		imgui_open;
+						v2			uv_scale = v2(4,2);
 
-						bool imgui () {
+						bool		imgui_open = false;
+
+						bool imgui (uptr spheres_count) {
 							bool delete_sphere = false;
 
 							imgui::SetNextTreeNodeOpen(imgui_open);
-							imgui_open = imgui::TreeNode(this, name.c_str());
+							imgui_open = imgui::TreeNode((void*)(((uptr)this << 16) + spheres_count), name.c_str());
 							if (!imgui_open)
 								return delete_sphere;
 
@@ -568,10 +600,15 @@ int main () {
 							imgui::InputText_str("metallic_tex", &metallic_tex);
 							imgui::InputText_str("roughness_tex", &roughness_tex);
 							imgui::InputText_str("normal_tex", &normal_tex);
+							imgui::SameLine();
+							imgui::Checkbox("normal_flip_y", &normal_flip_y);
+							imgui::InputText_str("ao_tex", &ao_tex);
 
 							imgui::ColorEdit3("albedo", &albedo_srgb.x);
 							imgui::SliderFloat("metallic", &metallic, 0,1);
 							imgui::SliderFloat("roughness", &roughness, 0,1);
+
+							imgui::DragFloat2("uv_scale", &uv_scale.x, 1.0f / 200);
 
 							imgui::TreePop();
 
@@ -589,22 +626,24 @@ int main () {
 							save->value("metallic_tex",		&metallic_tex);
 							save->value("roughness_tex",	&roughness_tex);
 							save->value("normal_tex",		&normal_tex);
+							save->value("normal_flip_y",	&normal_flip_y);
+							save->value("ao_tex",			&ao_tex);
 							
 							save->value("albedo_srgb",		&albedo_srgb);
 							save->value("metallic",			&metallic);
 							save->value("roughness",		&roughness);
 
+							save->value("uv_scale",			&uv_scale);
+
 						}
 					};
-					static std::vector<Sphere> spheres = {
-						{ "rustediron", v3(6.16f, 3.76f, 0), 0, 0.5f, "assets/pbr_mats/rustediron1-alt2-Unreal-Engine/", "rustediron2_basecolor.png", "rustediron2_metallic.png", "rustediron2_roughness.png", "rustediron2_normal.png", 1, 0, 0.25f },
-					};
+					static std::vector<Sphere> spheres;
 
 					if (imgui::TreeNodeEx("spheres", ImGuiTreeNodeFlags_DefaultOpen)) {
 
 						for (auto it=spheres.begin(); it!=spheres.end();) {
 
-							bool delete_it = it->imgui();
+							bool delete_it = it->imgui(spheres.size());
 							
 							if (delete_it)
 								it = spheres.erase(it);
@@ -618,11 +657,11 @@ int main () {
 						imgui::TreePop();
 					}
 
-					save->begin_array("spheres");
+					save->begin_array("spheres", &spheres);
 					for (auto& s : spheres) {
-						save->begin_arr_elem("sphere");
+						save->begin("sphere");
 						s.save(save);
-						save->end_arr_elem();
+						save->end();
 					}
 					save->end_array();
 
@@ -631,6 +670,8 @@ int main () {
 						hm model_to_world = translateH(s.pos) * rotateH_Z(s.ori) * scaleH(s.radius);
 
 						set_uniform(shad, "model_to_world", model_to_world.m4());
+
+						set_uniform(shad, "uv_scale", s.uv_scale);
 
 						if (s.albedo_tex.size() > 0)	set_material_albedo(shad, *get_texture(		s.folder + s.albedo_tex, { PF_SRGB8 }));
 						else							set_material_albedo(shad, lrgba(to_linear(s.albedo_srgb), 1));
@@ -641,13 +682,17 @@ int main () {
 						if (s.roughness_tex.size() > 0)	set_material_roughness(shad, *get_texture(	s.folder + s.roughness_tex, { PF_LRGB8 }));
 						else							set_material_roughness(shad, s.roughness);
 
-						if (s.normal_tex.size() > 0)	set_material_normal(shad, *get_texture(		s.folder + s.normal_tex, { PF_LRGB8 }));
+						if (s.normal_tex.size() > 0)	set_material_normal(shad, *get_texture(		s.folder + s.normal_tex, { PF_LRGB8 }), s.normal_flip_y);
 						else							set_material_normal_identity(shad);
+
+						if (s.ao_tex.size() > 0)		set_material_ao(shad, *get_texture(			s.folder + s.ao_tex, { PF_LRGB8 }));
+						else							set_material_ao_identity(shad);
 
 						draw_triangles(*shad, 0,(int)sphere_mesh.size());
 					}
 				}
 			}
+			imgui::Separator();
 
 			static bool draw_terrain = 0;
 			imgui::Checkbox("draw_terrain", &draw_terrain);
@@ -666,9 +711,12 @@ int main () {
 				set_material_metallic(s,	0);
 				set_material_roughness(s,	0.8f);
 				set_material_normal_identity(s);
+				set_material_ao_identity(s);
 
 				bind_texture(s, "skybox", 4, *skybox);
 				bind_texture(s, "irradiance", 5, irradiance);
+
+				set_uniform(s, "uv_scale", v2(1));
 
 				draw_triangles(*s, 0, (int)mesh->vbo_data.size());
 			}
@@ -736,9 +784,12 @@ int main () {
 					set_material_metallic(s,	0);
 					set_material_roughness(s,	0.5f);
 					set_material_normal_identity(s);
+					set_material_ao_identity(s);
 
 					bind_texture(s, "skybox", 4, *skybox);
 					bind_texture(s, "irradiance", 5, irradiance);
+
+					set_uniform(s, "uv_scale", v2(1));
 
 					draw_stream_triangles(*s, quad);
 				}

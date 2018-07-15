@@ -8,7 +8,7 @@
 #include "defer.hpp"
 
 namespace engine {
-	inline bool load_text_file (cstr filepath, std::string* text) {
+	bool load_text_file (cstr filepath, std::string* text) {
 
 		FILE* f = fopen(filepath, "rb"); // i don't want "\r\n" to "\n" conversion, because it interferes with my file size calculation and i usually handle \r\n anyway
 		if (!f)
@@ -34,7 +34,7 @@ namespace engine {
 		uptr	size = 0;
 
 		//
-		static inline Blob alloc (uptr size) {
+		static Blob alloc (uptr size) {
 			Blob b;
 			b.data = malloc(size);
 			b.size = size;
@@ -42,27 +42,27 @@ namespace engine {
 		}
 
 		// default unallocated
-		inline Blob () {}
+		Blob () {}
 		// always auto free
-		inline ~Blob () {
+		~Blob () {
 			free(data); // ok to free nullptr
 		}
 
 		// no implicit copy
-		inline Blob& operator= (Blob& r) = delete;
-		inline Blob (Blob& r) = delete;
+		Blob& operator= (Blob& r) = delete;
+		Blob (Blob& r) = delete;
 		// move operators
 		friend void swap (Blob& l, Blob& r);
-		inline Blob& operator= (Blob&& r) {	swap(*this, r);	return *this; }
-		inline Blob (Blob&& r) {				swap(*this, r); }
+		Blob& operator= (Blob&& r) {	swap(*this, r);	return *this; }
+		Blob (Blob&& r) {				swap(*this, r); }
 
 	};
-	inline void swap (Blob& l, Blob& r) {
+	void swap (Blob& l, Blob& r) {
 		std::swap(l.data, r.data);
 		std::swap(l.size, r.size);
 	}
 
-	inline bool load_binary_file (cstr filepath, Blob* blob) {
+	bool load_binary_file (cstr filepath, Blob* blob) {
 
 		FILE* f = fopen(filepath, "rb"); // we don't want "\r\n" to "\n" conversion
 		if (!f)
@@ -84,7 +84,7 @@ namespace engine {
 		return true;
 	}
 
-	inline bool load_fixed_size_binary_file (cstr filepath, void* data, uptr sz) {
+	bool load_fixed_size_binary_file (cstr filepath, void* data, uptr sz) {
 
 		FILE* f = fopen(filepath, "rb");
 		if (!f)
@@ -107,7 +107,7 @@ namespace engine {
 		return true;
 	}
 
-	inline bool write_fixed_size_binary_file (cstr filepath, void const* data, uptr sz) {
+	bool write_fixed_size_binary_file (cstr filepath, void const* data, uptr sz) {
 
 		FILE* f = fopen(filepath, "wb");
 		if (!f)
@@ -121,5 +121,9 @@ namespace engine {
 			return false;
 
 		return true;
+	}
+
+	bool write_text_file (cstr filepath, std::string const& text) {
+		return write_fixed_size_binary_file(filepath, &text[0], text.size());
 	}
 }

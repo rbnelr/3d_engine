@@ -4,24 +4,24 @@ namespace engine {
 namespace n_parse {
 //
 
-inline bool is_whitespace_c (char c) {	return c == ' ' || c == '\t'; }
-inline bool is_newline_c (char c) {		return c == '\n' || c == '\r'; }
-inline bool is_lower_c (char c) {		return c >= 'a' && c <= 'z'; }
-inline bool is_upper_c (char c) {		return c >= 'A' && c <= 'Z'; }
-inline bool is_alpha_c (char c) {		return is_lower_c(c) || is_upper_c(c); }
-inline bool is_digit_c (char c) {		return c >= '0' && c <= '9'; }
+bool is_whitespace_c (char c) {	return c == ' ' || c == '\t'; }
+bool is_newline_c (char c) {		return c == '\n' || c == '\r'; }
+bool is_lower_c (char c) {		return c >= 'a' && c <= 'z'; }
+bool is_upper_c (char c) {		return c >= 'A' && c <= 'Z'; }
+bool is_alpha_c (char c) {		return is_lower_c(c) || is_upper_c(c); }
+bool is_digit_c (char c) {		return c >= '0' && c <= '9'; }
 
-inline bool is_identifier_start_c (char c) {	return is_alpha_c(c) || c == '_'; }
-inline bool is_identifier_c (char c) {			return is_alpha_c(c) || is_digit_c(c) || c == '_'; }
+bool is_identifier_start_c (char c) {	return is_alpha_c(c) || c == '_'; }
+bool is_identifier_c (char c) {			return is_alpha_c(c) || is_digit_c(c) || c == '_'; }
 
-inline bool character (char** pcur, char c) {
+bool character (char** pcur, char c) {
 	if (**pcur != c)
 		return false;
 	*pcur += 1;
 	return true;
 }
 
-inline bool whitespace (char** pcur) {
+bool whitespace (char** pcur) {
 	char* cur = *pcur;
 
 	char c = *cur;
@@ -35,7 +35,7 @@ inline bool whitespace (char** pcur) {
 	return true;
 }
 
-inline bool newline (char** pcur) {
+bool newline (char** pcur) {
 	char* cur = *pcur;
 
 	char c = *cur;
@@ -53,7 +53,7 @@ inline bool newline (char** pcur) {
 	return true;
 }
 
-inline bool string (char** pcur, cstr str) {
+bool string (char** pcur, cstr str) {
 	char* cur = *pcur;
 
 	while (*str != '\0') {
@@ -65,7 +65,20 @@ inline bool string (char** pcur, cstr str) {
 	*pcur = cur;
 	return true;
 }
-inline bool identifier (char** pcur, cstr identifier_string) { // checks if *pcur points to a string equal to identifier_string that ends on a non identifer char
+bool string_ignore_case (char** pcur, cstr str) {
+	char* cur = *pcur;
+
+	while (*str != '\0') {
+		if (to_upper(*str) != to_upper(*cur)) return false;
+		++str;
+		++cur;
+	}
+
+	*pcur = cur;
+	return true;
+}
+
+bool identifier (char** pcur, cstr identifier_string) { // checks if *pcur points to a string equal to identifier_string that ends on a non identifer char
 	char* cur = *pcur;
 
 	if (!string(&cur, identifier_string))
@@ -77,8 +90,20 @@ inline bool identifier (char** pcur, cstr identifier_string) { // checks if *pcu
 	*pcur = cur;
 	return true;
 }
+bool identifier_ignore_case (char** pcur, cstr identifier_string) { // checks if *pcur points to a string equal to identifier_string that ends on a non identifer char
+	char* cur = *pcur;
 
-inline bool quoted_string (char** pcur) {
+	if (!string_ignore_case(&cur, identifier_string))
+		return false;
+
+	if (is_identifier_c(*cur))
+		return false;
+
+	*pcur = cur;
+	return true;
+}
+
+bool quoted_string (char** pcur) {
 	char* cur = *pcur;
 
 	if (!character(&cur, '"'))
@@ -93,7 +118,7 @@ inline bool quoted_string (char** pcur) {
 	*pcur = cur;
 	return true;
 }
-inline bool quoted_string (char** pcur, char** out_begin, int* out_length) {
+bool quoted_string (char** pcur, char** out_begin, int* out_length) {
 	char* cur = *pcur;
 
 	char* begin = cur;
@@ -113,7 +138,7 @@ inline bool quoted_string (char** pcur, char** out_begin, int* out_length) {
 	return true;
 }
 
-inline bool quoted_string_copy (char** pcur, std::string* out) {
+bool quoted_string_copy (char** pcur, std::string* out) {
 	char* begin;
 	int length;
 	if (!quoted_string(pcur, &begin, &length))
@@ -124,7 +149,7 @@ inline bool quoted_string_copy (char** pcur, std::string* out) {
 	return true;
 }
 
-inline bool unsigned_int (char** pcur, unsigned int* out) {
+bool unsigned_int (char** pcur, unsigned int* out) {
 	char* cur = *pcur;
 
 	if (!is_digit_c(*cur))
@@ -145,7 +170,7 @@ inline bool unsigned_int (char** pcur, unsigned int* out) {
 	*pcur = cur;
 	return true;
 }
-inline bool signed_int (char** pcur, int* out) {
+bool signed_int (char** pcur, int* out) {
 	char* cur = *pcur;
 
 	bool negative = false;
@@ -170,7 +195,7 @@ inline bool signed_int (char** pcur, int* out) {
 	return true;
 }
 
-inline bool float32 (char** pcur, float* out) {
+bool float32 (char** pcur, float* out) {
 	char* cur = *pcur;
 
 	char* endptr;
@@ -185,12 +210,25 @@ inline bool float32 (char** pcur, float* out) {
 	*pcur = cur;
 	return true;
 }
+bool bool_ (char** pcur, bool* out) {
+	char* cur = *pcur;
 
-inline bool end_of_input (char* cur) {
+	if (		character(&cur, '1') || identifier_ignore_case(&cur, "true") )
+		*out = true;
+	else if (	character(&cur, '0') || identifier_ignore_case(&cur, "false") )
+		*out = false;
+	else
+		return false;
+
+	*pcur = cur;
+	return true;
+}
+
+bool end_of_input (char* cur) {
 	return *cur == '\0';
 }
 
-inline bool line_comment (char** pcur) { // consumes the newline too
+bool line_comment (char** pcur) { // consumes the newline too
 	char* cur = *pcur;
 
 	if (!(cur[0] == '/' && cur[1] == '/'))
@@ -204,7 +242,7 @@ inline bool line_comment (char** pcur) { // consumes the newline too
 	return true;
 }
 
-inline bool end_of_line (char** pcur) { // consume following whitespace, line comment and newline
+bool end_of_line (char** pcur) { // consume following whitespace, line comment and newline
 	char* cur = *pcur;
 
 	whitespace(&cur);
