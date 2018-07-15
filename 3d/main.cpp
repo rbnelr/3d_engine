@@ -56,6 +56,18 @@ void set_material_ao_identity(Shader* s) {
 	set_uniform(s,	"ao_offs", 1.0f);
 }
 
+void set_material_height(Shader* s, Texture2D const& tex, flt depth, flt offs) {
+	bind_texture(s,	"height_tex", 5, tex);
+	
+	set_uniform(s,	"height_mult", depth); // depth is depth "units" ? what even are the units in this?
+	set_uniform(s,	"height_offs", map(offs, 0,1, -depth,0)); // offs=0: go from [-depth,0]  offs=1: go from [0,+depth] 
+}
+void set_material_height_identity(Shader* s) {
+	bind_texture(s,	"height_tex", 5, *tex_black());
+	set_uniform(s,	"height_mult", 0.0f);
+	set_uniform(s,	"height_offs", 0.0f);
+}
+
 std::string shad_default_2d =			"default_2d";
 std::string shad_default_3d =			"default_3d";
 
@@ -528,7 +540,7 @@ int main () {
 			}
 
 			if (update_brdf_LUT) {
-				brdf_LUT = alloc_texture(brdf_LUT_res, { PF_LRGBF, NO_MIPMAPS, FILTER_LINEAR, BORDER_CLAMP });
+				brdf_LUT = alloc_texture(brdf_LUT_res, { PF_LRGBF, USE_MIPMAPS, FILTER_LINEAR, BORDER_CLAMP });
 
 				auto fbo = create_fbo(brdf_LUT, brdf_LUT_res);
 
@@ -554,7 +566,7 @@ int main () {
 				draw_to_texture(fbo, brdf_LUT_res);
 				draw_fullscreen_quad(s);
 
-				//brdf_LUT.generate_mipmaps();
+				brdf_LUT.generate_mipmaps();
 			}
 		}
 
@@ -606,6 +618,19 @@ int main () {
 			glDepthMask(GL_TRUE);
 			glEnable(GL_CULL_FACE);
 			glDisable(GL_SCISSOR_TEST);
+
+			static std::vector<Default_Vertex_3d> quad;
+			if (quad.size() == 0) {
+				for (auto p : quad_verts) {
+					Default_Vertex_3d v;
+					v.pos_model = v3(p -0.5f, +0.5f);
+					v.normal_model = v3(0,0,1);
+					v.tangent_model = v4(1,0,0,1);
+					v.uv = p;
+					v.col_lrgba = srgba8(230).to_lrgb();
+					quad.push_back(v);
+				}
+			}
 
 			{
 				inline_shader("test.vert", R"_SHAD(
@@ -680,10 +705,11 @@ int main () {
 				set_material_roughness(s,	*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_R.tga", { PF_LRGB8 }));
 				set_material_normal(s,		*get_texture("assets/Cerberus_by_Andrew_Maximov/Textures/Cerberus_N.tga", { PF_LRGB8 }));
 				set_material_ao_identity(s);
+				set_material_height_identity(s);
 
-				bind_texture(s, "irradiance", 5, irradiance);
-				bind_texture(s, "prefilter", 6, prefilter);
-				bind_texture(s, "brdf_LUT", 7, brdf_LUT);
+				bind_texture(s, "irradiance", 6, irradiance);
+				bind_texture(s, "prefilter", 7, prefilter);
+				bind_texture(s, "brdf_LUT", 8, brdf_LUT);
 
 				set_uniform(s, "uv_scale", v2(1));
 
@@ -697,8 +723,7 @@ int main () {
 				if (shad) {
 					
 					static auto vbo = stream_vertex_data(sphere_mesh.data(), (int)sphere_mesh.size() * Default_Vertex_3d::layout.vertex_size);
-					use_vertex_data(*shad, Default_Vertex_3d::layout, vbo);
-
+					
 					bind_texture(shad, "skybox", 4, skybox);
 					bind_texture(shad, "irradiance", 5, irradiance);
 
@@ -729,6 +754,11 @@ int main () {
 								set_material_roughness(shad,	(flt)r / (flt)(roughness_steps -1));
 								set_material_normal_identity(shad);
 								set_material_ao_identity(shad);
+								set_material_height_identity(shad);
+
+								bind_texture(shad, "irradiance", 6, irradiance);
+								bind_texture(shad, "prefilter", 7, prefilter);
+								bind_texture(shad, "brdf_LUT", 8, brdf_LUT);
 
 								draw_triangles(*shad, 0,(int)sphere_mesh.size());
 							}
@@ -750,7 +780,11 @@ int main () {
 						std::string	roughness_tex;
 						std::string	normal_tex;
 						std::string	ao_tex;
+						std::string	height_tex;
 						bool		normal_flip_y = true;
+
+						flt			height_depth = 0.1;
+						flt			height_offs = 0;
 
 						v3			albedo_srgb = 1;
 						flt			metallic;
@@ -794,6 +828,10 @@ int main () {
 							imgui::SameLine();
 							imgui::Checkbox("normal_flip_y", &normal_flip_y);
 							imgui::InputText_str("ao_tex", &ao_tex);
+							imgui::InputText_str("height_tex",		&height_tex);
+
+							imgui::DragFloat("height_depth", &height_depth, 0.1f / 100);
+							imgui::DragFloat("height_offs", &height_offs, 0.1f / 100);
 
 							imgui::ColorEdit3("albedo", &albedo_srgb.x);
 							imgui::SliderFloat("metallic", &metallic, 0,1);
@@ -819,6 +857,10 @@ int main () {
 							save->value("normal_tex",		&normal_tex);
 							save->value("normal_flip_y",	&normal_flip_y);
 							save->value("ao_tex",			&ao_tex);
+							save->value("height_tex",		&height_tex);
+
+							save->value("height_depth",		&height_depth);
+							save->value("height_offs",		&height_offs);
 							
 							save->value("albedo_srgb",		&albedo_srgb);
 							save->value("metallic",			&metallic);
@@ -879,7 +921,26 @@ int main () {
 						if (s.ao_tex.size() > 0)		set_material_ao(shad, *get_texture(			s.folder + s.ao_tex, { PF_LRGB8 }));
 						else							set_material_ao_identity(shad);
 
+						if (s.height_tex.size() > 0)	set_material_height(shad, *get_texture(		s.folder + s.height_tex, { PF_LRGB8 }), s.height_depth, s.height_offs);
+						else							set_material_height_identity(shad);
+
+						bind_texture(shad, "irradiance", 6, irradiance);
+						bind_texture(shad, "prefilter", 7, prefilter);
+						bind_texture(shad, "brdf_LUT", 8, brdf_LUT);
+
+						use_vertex_data(*shad, Default_Vertex_3d::layout, vbo);
+						
 						draw_triangles(*shad, 0,(int)sphere_mesh.size());
+
+						if (s.height_tex.size() > 0) {
+							hm model_to_world = translateH(s.pos +v3(0,0,1.5f)) * rotate3_Z(deg(-90)) * rotate3_X(deg(90)) * scaleH(1);
+						
+							set_uniform(shad, "model_to_world", model_to_world.m4());
+
+							set_uniform(shad, "uv_scale", v2(2,2));
+
+							draw_stream_triangles(*shad, quad);
+						}
 					}
 				}
 			}
@@ -903,26 +964,15 @@ int main () {
 				set_material_roughness(s,	0.8f);
 				set_material_normal_identity(s);
 				set_material_ao_identity(s);
+				set_material_height_identity(s);
 
-				bind_texture(s, "irradiance", 5, irradiance);
-				bind_texture(s, "prefilter", 6, prefilter);
-				bind_texture(s, "brdf_LUT", 7, brdf_LUT);
+				bind_texture(s, "irradiance", 6, irradiance);
+				bind_texture(s, "prefilter", 7, prefilter);
+				bind_texture(s, "brdf_LUT", 8, brdf_LUT);
 
 				set_uniform(s, "uv_scale", v2(1));
 
 				draw_triangles(*s, 0, (int)mesh->vbo_data.size());
-			}
-
-			std::vector<Default_Vertex_3d> quad;
-
-			for (auto p : quad_verts) {
-				Default_Vertex_3d v;
-				v.pos_model = v3(p -0.5f, +0.5f);
-				v.normal_model = v3(0,0,1);
-				v.tangent_model = v4(1,0,0,1);
-				v.uv = p;
-				v.col_lrgba = srgba8(230).to_lrgb();
-				quad.push_back(v);
 			}
 
 			for (int face=0; face<6; ++face) {
@@ -977,10 +1027,11 @@ int main () {
 					set_material_roughness(s,	0.5f);
 					set_material_normal_identity(s);
 					set_material_ao_identity(s);
+					set_material_height_identity(s);
 
-					bind_texture(s, "irradiance", 5, irradiance);
-					bind_texture(s, "prefilter", 6, prefilter);
-					bind_texture(s, "brdf_LUT", 7, brdf_LUT);
+					bind_texture(s, "irradiance", 6, irradiance);
+					bind_texture(s, "prefilter", 7, prefilter);
+					bind_texture(s, "brdf_LUT", 8, brdf_LUT);
 
 					set_uniform(s, "uv_scale", v2(1));
 

@@ -22,6 +22,25 @@ bool dbg_left () {
 		DEBUG(0);
 	return gl_FragCoord.x < common_mcursor_pos.x;
 }
+bool dbg_right () {
+	if (gl_FragCoord.x == common_mcursor_pos.x)
+		DEBUG(0);
+	return gl_FragCoord.x > common_mcursor_pos.x;
+}
+bool dbg_down () {
+	if (gl_FragCoord.y == common_mcursor_pos.y)
+		DEBUG(0);
+	return gl_FragCoord.y < common_mcursor_pos.y;
+}
+bool dbg_up () {
+	if (gl_FragCoord.y == common_mcursor_pos.y)
+		DEBUG(0);
+	return gl_FragCoord.y > common_mcursor_pos.y;
+}
+
+vec2 mcursor () {
+	return common_mcursor_pos / common_viewport_size;
+}
 
 #if WIREFRAME
 uniform bool	wireframe_enable = false;

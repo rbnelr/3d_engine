@@ -2,6 +2,8 @@ $include "common.frag"
 $include "normalmapping.glsl"
 $include "pbr_formulas.glsl"
 
+#extension GL_EXT_gpu_shader4_1 : enable
+
 in		vec3	vs_pos_cam;
 in		vec3	vs_normal_cam;
 in		vec4	vs_tangent_cam;
@@ -91,6 +93,7 @@ vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, float ao,
 			vec3 R = reflect(-V, N);
 			vec3 R_skybox = common_cubemap_z_up_to_gl_ori * mat3(common_world_to_skybox) * mat3(cam_cam_to_world) * R;
 
+
 			vec3 prefiltered_color = textureLod(prefilter, R_skybox, roughness * pbr_prefilter_levels).rgb;
 
 			vec2 brdf = texture(brdf_LUT, vec2(NV, roughness)).rg;
@@ -106,19 +109,22 @@ vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, float ao,
 
 vec4 frag () {
 	
-	vec4	 albedo_sample =	(texture(albedo_tex, vs_uv)			* albedo_mult		+ albedo_offs) * vs_col;
-	float	 metallic_sample =	 texture(metallic_tex, vs_uv).r		* metallic_mult		+ metallic_offs;
-	float	 roughness_sample =	 texture(roughness_tex, vs_uv).r	* roughness_mult	+ roughness_offs;
-	vec3	 normal_sample =	 texture(normal_tex, vs_uv).rgb		* normal_mult		+ normal_offs;
-	float	 ao_sample =		 texture(ao_tex, vs_uv).r			* ao_mult			+ ao_offs;
+	vec3 vertex_normal =	normalize(vs_normal_cam);
+	vec4 tangent = vec4(	normalize(vs_tangent_cam.xyz), vs_tangent_cam.w );
+	
+	vec2 parallax_uv =	parallax_mapping(vertex_normal, tangent, vs_uv, vs_pos_cam);
+
+	vec4	albedo_sample =		(texture(albedo_tex, parallax_uv)			* albedo_mult		+ albedo_offs) * vs_col;
+	float	metallic_sample =	 texture(metallic_tex, parallax_uv).r		* metallic_mult		+ metallic_offs;
+	float	roughness_sample =	 texture(roughness_tex, parallax_uv).r		* roughness_mult	+ roughness_offs;
+	vec3	normal_sample =		 texture(normal_tex, parallax_uv).rgb		* normal_mult		+ normal_offs;
+	float	ao_sample =			 texture(ao_tex, parallax_uv).r				* ao_mult			+ ao_offs;
 	
 	vec3 albedo = albedo_sample.rgb;
 	float alpha = albedo_sample.a;
 	
 	vec3 frag_to_cam =		normalize(-vs_pos_cam);
 	vec3 frag_to_light =	normalize(mat3(cam_world_to_cam) * common_skybox_light_dir_world);
-	vec3 vertex_normal =	normalize(vs_normal_cam);
-	vec4 tangent = vec4(	normalize(vs_tangent_cam.xyz), vs_tangent_cam.w );
 	
 	vec3 normal = normalmapping(normal_sample, vertex_normal, tangent);
 	
