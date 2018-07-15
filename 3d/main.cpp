@@ -445,7 +445,8 @@ int main () {
 			static int desired_prefilter_levels = 5;
 			static int brdf_LUT_sample_count = 1024;
 
-			static int displacement_layers_count = 10;
+			static flt displacement_min_layers_count = 10;
+			static flt displacement_max_layers_count = 10;
 
 			if (imgui::TreeNodeEx("PBR", ImGuiTreeNodeFlags_CollapsingHeader|ImGuiTreeNodeFlags_DefaultOpen)) {
 				
@@ -463,7 +464,8 @@ int main () {
 				imgui::SameLine();
 				update_brdf_LUT =	imgui::Button("update brdf_LUT_res") || update_brdf_LUT;
 
-				imgui::DragInt("displacement_layers_count", &displacement_layers_count, 1.0f / 50, 0);
+				imgui::DragFloat("displacement_min_layers_count", &displacement_min_layers_count, 1.0f / 20, 0);
+				imgui::DragFloat("displacement_max_layers_count", &displacement_max_layers_count, 1.0f / 20, 0);
 
 				imgui::TreePop();
 			}
@@ -478,12 +480,14 @@ int main () {
 				save->value("desired_prefilter_levels", &desired_prefilter_levels);
 				save->value("brdf_LUT_sample_count", &brdf_LUT_sample_count);
 
-				save->value("displacement_layers_count", &displacement_layers_count);
+				save->value("displacement_min_layers_count", &displacement_min_layers_count);
+				save->value("displacement_max_layers_count", &displacement_max_layers_count);
 
 				save->end();
 			}
 
-			set_shared_uniform("displacement", "layers_count", displacement_layers_count);
+			set_shared_uniform("displacement", "min_layers_count", displacement_min_layers_count);
+			set_shared_uniform("displacement", "max_layers_count", displacement_max_layers_count);
 
 			if (update_irradiance) {
 				irradiance = alloc_cube_texture(irradiance_res, { PF_LRGBF, USE_MIPMAPS });

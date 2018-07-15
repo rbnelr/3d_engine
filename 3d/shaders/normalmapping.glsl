@@ -18,7 +18,8 @@ vec3 normalmapping (vec3 normal_map_val, vec3 vertex_normal_cam, vec4 tangent_ca
 
 uniform sampler2D	displacement_tex;
 uniform	float		displacement_size;
-uniform	int			displacement_layers_count = 10;
+uniform	float		displacement_min_layers_count = 8.0;
+uniform	float		displacement_max_layers_count = 32.0;
 
 vec2 parallax_mapping (vec3 vertex_normal_cam, vec4 tangent_cam, vec2 real_uv, vec3 frag_pos_cam) {
 	
@@ -37,16 +38,20 @@ vec2 parallax_mapping (vec3 vertex_normal_cam, vec4 tangent_cam, vec2 real_uv, v
 
 	vec2 uv = real_uv;
 	{
+		float displacement_layers_count = mix(displacement_max_layers_count, displacement_min_layers_count, abs(view_dir.z));
+
 		float layers_depth = abs(displacement_size);
-		float layer_depth = layers_depth / float(displacement_layers_count);
+		float layer_depth = layers_depth / displacement_layers_count;
 
 		vec2 uv_step = view_dir.xy / view_dir.zz * layer_depth;
+
+		float surface_depth;
 
 		float ray_depth = 0.0;
 
 		for (;;) {
 			
-			float surface_depth = texture(displacement_tex, uv).r;
+			surface_depth = texture(displacement_tex, uv).r;
 			if (displacement_size < 0.0)
 				surface_depth = 1.0 - surface_depth;
 			surface_depth *= layers_depth;
@@ -58,6 +63,23 @@ vec2 parallax_mapping (vec3 vertex_normal_cam, vec4 tangent_cam, vec2 real_uv, v
 			ray_depth += layer_depth;
 		}
 		
+		if (false) { // TODO: debug this
+			vec2 prev_uv = uv + uv_step;
+
+			// get depth after and before collision for linear interpolation
+			float afterDepth  = surface_depth - ray_depth;
+			float beforeDepth = texture(displacement_tex, prev_uv).r;
+			if (displacement_size < 0.0)
+				beforeDepth = 1.0 - beforeDepth;
+			beforeDepth *= layers_depth;
+		
+			beforeDepth = beforeDepth - ray_depth + layer_depth;
+
+			// interpolation of texture coordinates
+			float weight = afterDepth / (afterDepth - beforeDepth);
+			uv = prev_uv * weight + uv * (1.0 - weight);
+		}
+
 	}
 	return uv;
 }

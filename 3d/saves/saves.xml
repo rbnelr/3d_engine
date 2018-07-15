@@ -1,8 +1,8 @@
 <test>blah</test>
 <draw_wireframe>false</draw_wireframe>
 <cam>
-	<pos_world>11.3049, 6.9947, 3.22652</pos_world>
-	<altazimuth>-16.5531 deg, 71.1605 deg, 0 deg</altazimuth>
+	<pos_world>10.9678, 9.21143, 3.25213</pos_world>
+	<altazimuth>14.0462 deg, 69.3608 deg, 0 deg</altazimuth>
 	<vfov>70 deg</vfov>
 	<clip_near>0.033</clip_near>
 	<clip_far>1024</clip_far>
@@ -326,6 +326,8 @@
 	<desired_prefilter_levels>10</desired_prefilter_levels>
 	<brdf_LUT_sample_count>4096</brdf_LUT_sample_count>
 	<displacement_layers_count>10</displacement_layers_count>
+	<displacement_min_layers_count>8</displacement_min_layers_count>
+	<displacement_max_layers_count>32</displacement_max_layers_count>
 </PBR>
 <visualize_prefilter_map_lod>0.46</visualize_prefilter_map_lod>
 
