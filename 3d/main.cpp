@@ -60,7 +60,7 @@ void set_material_height(Shader* s, Texture2D const& tex, flt depth, flt offs) {
 	bind_texture(s,	"height_tex", 5, tex);
 	
 	set_uniform(s,	"height_mult", depth); // depth is depth "units" ? what even are the units in this?
-	set_uniform(s,	"height_offs", map(offs, 0,1, -depth,0)); // offs=0: go from [-depth,0]  offs=1: go from [0,+depth] 
+	set_uniform(s,	"height_offs", map(offs, 0,1, -abs(depth),0)); // offs=0: go from [-depth,0]  offs=1: go from [0,+depth] 
 }
 void set_material_height_identity(Shader* s) {
 	bind_texture(s,	"height_tex", 5, *tex_black());
@@ -783,7 +783,7 @@ int main () {
 						std::string	height_tex;
 						bool		normal_flip_y = true;
 
-						flt			height_depth = 0.1;
+						flt			height_depth = 0.1f;
 						flt			height_offs = 0;
 
 						v3			albedo_srgb = 1;
@@ -933,11 +933,11 @@ int main () {
 						draw_triangles(*shad, 0,(int)sphere_mesh.size());
 
 						if (s.height_tex.size() > 0) {
-							hm model_to_world = translateH(s.pos +v3(0,0,1.5f)) * rotate3_Z(deg(-90)) * rotate3_X(deg(90)) * scaleH(1);
+							hm model_to_world = translateH(s.pos +v3(0,0,1.5f)) * rotate3_Z(deg(-90) +s.ori) * rotate3_X(deg(90)) * scaleH(1);
 						
 							set_uniform(shad, "model_to_world", model_to_world.m4());
 
-							set_uniform(shad, "uv_scale", v2(2,2));
+							set_uniform(shad, "uv_scale", s.uv_scale * v2(0.5f,1));
 
 							draw_stream_triangles(*shad, quad);
 						}

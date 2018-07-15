@@ -39,7 +39,7 @@ vec2 parallax_mapping (vec3 vertex_normal_cam, vec4 tangent_cam, vec2 real_uv, v
 
 	vec2 offs = cam_pos_tang.xy / vec2(cam_pos_tang.z) * vec2(height);
 
-	DEBUG(offs);
+	vec2 uv = real_uv + offs;
 
-	return real_uv + offs;
+	return uv;
 }
