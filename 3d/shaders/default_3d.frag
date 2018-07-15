@@ -1,4 +1,6 @@
 $include "common.frag"
+$include "normalmapping.glsl"
+$include "pbr_formulas.glsl"
 
 in		vec3	vs_pos_cam;
 in		vec3	vs_normal_cam;
@@ -38,75 +40,11 @@ uniform	mat3 common_world_to_skybox;
 uniform	mat3 common_cubemap_gl_ori_to_z_up;
 uniform	mat3 common_cubemap_z_up_to_gl_ori;
 
-uniform samplerCube skybox;
 uniform samplerCube irradiance;
+uniform samplerCube prefilter;
+uniform sampler2D	brdf_LUT;
 
-vec3 normalmapping (vec3 normal_map_val, vec3 vertex_normal_cam, vec4 tangent_cam) {
-	vec3 normal_tangent = normal_map_val * 2 -1;
-
-	float bitangent_sign = tangent_cam.w;
-	vec3 bitangent_cam = cross(vertex_normal_cam, tangent_cam.xyz);
-	
-	tangent_cam.xyz = normalize(tangent_cam.xyz -(dot(tangent_cam.xyz, vertex_normal_cam) * vertex_normal_cam)); // make sure tangent space axes are orthogonal
-
-	bitangent_cam *= bitangent_sign;
-
-	mat3 tangent_to_cam = mat3(tangent_cam.xyz, bitangent_cam, vertex_normal_cam);
-
-	vec3 normal_cam = tangent_to_cam * normal_tangent;
-
-	return normal_cam;
-}
-
-#define PI 3.1415926535897932384626433832795
-
-vec3 fresnel_schlick (float cos_theta, vec3 F0) {
-    return F0 +(1.0 -F0) * pow(1.0 -cos_theta, 5.0);
-}
-vec3 fresnel (float VH, vec3 albedo, float metallic) {
-	vec3 F0 = mix(vec3(0.04), albedo, metallic);
-	vec3 F  = fresnel_schlick(VH, F0);
-
-	return F;
-}
-
-vec3 fresnel_schlick_roughness (float cos_theta, vec3 F0, float roughness) {
-    return F0 +(max(vec3(1.0 -roughness), F0) -F0) * pow(1.0 -cos_theta, 5.0);
-}
-vec3 fresnel_roughness (float VH, vec3 albedo, float metallic, float roughness) {
-	vec3 F0 = mix(vec3(0.04), albedo, metallic);
-	vec3 F  = fresnel_schlick_roughness(VH, F0, roughness);
-
-	return F;
-}
-
-float distribution_GGX (float NH, float roughness) {
-    float a      = roughness*roughness;
-    float a2     = a*a;
-    float NH2 = NH*NH;
-	
-    float num   = a2;
-    float denom = (NH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-	
-    return num / denom;
-}
-
-float geometry_schlick_GGX (float NV, float roughness) {
-    float r = (roughness + 1.0);
-    float k = (r * r) / 8.0;
-
-    float num   = NV;
-    float denom = NV * (1.0 - k) + k;
-	
-    return num / denom;
-}
-float geometry_smith (float NV, float NL, float roughness) {
-    float ggx2  = geometry_schlick_GGX(NV, roughness);
-    float ggx1  = geometry_schlick_GGX(NL, roughness);
-
-    return ggx1 * ggx2;
-}
+uniform	float		pbr_prefilter_levels;
 
 vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, float ao, vec3 frag_to_light, vec3 frag_to_cam, vec3 normal) { // all in cam space
 	vec3 N = normalize(normal);
@@ -121,7 +59,7 @@ vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, float ao,
 
 	vec3 light_out = vec3(0);
 	
-	{ // analytical light
+	{ // analytical light (direct lights: point lights, directional lights)
 		vec3 F = fresnel(VH, albedo, metallic);
 		vec3 k_diffuse = 1 -F;
 
@@ -136,16 +74,31 @@ vec3 cook_torrance_BRDF (vec3 albedo, float metallic, float roughness, float ao,
 
 		light_out += (k_diffuse * albedo / PI + specular) * common_skybox_light_radiance * NL * ao;
 	}
-	{ // ibl diffuse
-		vec3 F = fresnel_roughness(NV, albedo, metallic, roughness);
-
-		vec3 k_diffuse = 1 -F;
-
-		k_diffuse *= 1 -metallic;
+	{ // ibl (indirect or ambient light)
+		vec3 F0 = mix(vec3(0.04), albedo, metallic);
+		vec3 F = fresnel_schlick_roughness(NV, F0, roughness);
 		
-		vec3 irradiance_sample = texture(irradiance, common_cubemap_z_up_to_gl_ori * common_world_to_skybox * mat3(cam_cam_to_world) * N).rgb;
+		{ // ibl diffuse
+			vec3 k_diffuse = 1 -F;
 
-		light_out += k_diffuse * irradiance_sample * albedo * ao;
+			k_diffuse *= 1 -metallic;
+		
+			vec3 irradiance_sample = texture(irradiance, common_cubemap_z_up_to_gl_ori * common_world_to_skybox * mat3(cam_cam_to_world) * N).rgb;
+
+			light_out += k_diffuse * irradiance_sample * albedo * ao;
+		}
+		{ // ibl specular
+			vec3 R = reflect(-V, N);
+			vec3 R_skybox = common_cubemap_z_up_to_gl_ori * mat3(common_world_to_skybox) * mat3(cam_cam_to_world) * R;
+
+			vec3 prefiltered_color = textureLod(prefilter, R_skybox, roughness * pbr_prefilter_levels).rgb;
+
+			vec2 brdf = texture(brdf_LUT, vec2(NV, roughness)).rg;
+			
+			vec3 specular = prefiltered_color * (F * brdf.x + brdf.y);
+
+			light_out += specular * ao;
+		}
 	}
 
 	return light_out;

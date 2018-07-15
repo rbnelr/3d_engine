@@ -446,8 +446,6 @@ TextureCube upload_cube_texture_from_multifile (std::string const& name_format, 
 	return tex;
 }
 
-void imgui_texture_window_register_texture (std::string const& name);
-
 struct Any_Texture {
 	texture_type_e		type;
 	union {

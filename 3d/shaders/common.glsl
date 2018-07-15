@@ -28,11 +28,10 @@ float map (float x, float in_a, float in_b, float out_a, float out_b) {
 	return mix(out_a, out_b, map(x, in_a, in_b));
 }
 
-#define DEG_TO_RADd	0.01745329251994329576923690768489	// 180/PI
-#define DEG_TO_RAD	0.01745329251994329576923690768489f
+#define PI 3.1415926535897932384626433832795
 
-#define RAD_TO_DEGd	57.295779513082320876798154814105	// PI/180
-#define RAD_TO_DEG	57.295779513082320876798154814105f
+#define DEG_TO_RAD	0.01745329251994329576923690768489	// 180/PI
+#define RAD_TO_DEG	57.295779513082320876798154814105	// PI/180
 
 float to_rad (float ang) {	return ang * DEG_TO_RAD; }
 float deg (float ang) {		return ang * DEG_TO_RAD; }

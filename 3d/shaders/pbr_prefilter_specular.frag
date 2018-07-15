@@ -1,4 +1,5 @@
 $include "common.frag"
+$include "pbr_formulas.glsl"
 
 in		vec3	vs_dir;
 
@@ -9,44 +10,19 @@ uniform	float	roughness;
 uniform	int		sample_count;
 
 uniform	samplerCube	source_radiance;
+uniform	float		source_radiance_res;
 
-const float PI = 3.1415926535897932384626433832795;
+float chetan_jags_lod (float NdotH, float HdotV, float source_radiance_res, int sample_count, float roughness) {
+	
+	float D   = distribution_GGX(NdotH, roughness);
+	float pdf = (D * NdotH / (4.0 * HdotV)) + 0.0001; 
 
-float radical_inverse_VdC (uint bits) {
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+	float saTexel  = 4.0 * PI / (6.0 * source_radiance_res * source_radiance_res);
+	float saSample = 1.0 / (float(sample_count) * pdf + 0.0001);
+
+	float mipLevel = roughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel);
+	return mipLevel;
 }
-// ----------------------------------------------------------------------------
-vec2 hammersley (uint i, int N) {
-    return vec2(float(i) / float(N), radical_inverse_VdC(i));
-}
-
-vec3 importance_sample_GGX (vec2 Xi, vec3 N, float roughness) {
-    float a = roughness * roughness;
-	
-    float phi = 2.0 * PI * Xi.x;
-    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
-    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
-	
-    // from spherical coordinates to cartesian coordinates
-    vec3 H;
-    H.x = cos(phi) * sinTheta;
-    H.y = sin(phi) * sinTheta;
-    H.z = cosTheta;
-	
-    // from tangent-space vector to world-space sample vector
-	vec3 up        = abs(N.z) < 0.999999 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0);
-	vec3 tangent   = normalize(cross(up, N));
-	vec3 bitangent = cross(N, tangent);
-	
-	vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
-	
-	return normalize(sampleVec);
-}  
 
 vec4 frag () {
 	
@@ -73,10 +49,12 @@ vec4 frag () {
 	
 			float NdotL = max(dot(N, L), 0.0);
 			if(NdotL > 0.0) {
-				prefiltered_color += texture(source_radiance, common_cubemap_z_up_to_gl_ori * L).rgb * NdotL;
+				float lod = chetan_jags_lod(dot(N, H), dot(H, V), source_radiance_res, sample_count, roughness);
+
+				prefiltered_color += textureLod(source_radiance, common_cubemap_z_up_to_gl_ori * L, lod).rgb * NdotL;
 				total_weight      += NdotL;
 			}
-		
+			
 		}
 		prefiltered_color = prefiltered_color / total_weight;
 	}

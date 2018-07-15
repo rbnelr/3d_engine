@@ -7,8 +7,6 @@ uniform	mat3	common_cubemap_z_up_to_gl_ori;
 
 uniform	samplerCube	source_radiance;
 
-const float PI = 3.1415926535897932384626433832795;
-
 vec4 frag () {
 	vec3 irradiance_total = vec3(0.0);
 	

@@ -72,6 +72,15 @@
     <None Include="shaders\pbr_prefilter_specular.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\normalmapping.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_brdf_LUT_precompute.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_formulas.glsl">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

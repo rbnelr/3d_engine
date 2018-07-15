@@ -138,6 +138,9 @@
     <None Include="shaders\imgui.vert" />
     <None Include="shaders\imgui_texture_window_2d.frag" />
     <None Include="shaders\imgui_texture_window_2d.vert" />
+    <None Include="shaders\normalmapping.glsl" />
+    <None Include="shaders\pbr_brdf_LUT_precompute.frag" />
+    <None Include="shaders\pbr_formulas.glsl" />
     <None Include="shaders\pbr_irradiance_convolve.frag" />
     <None Include="shaders\pbr_irradiance_convolve.vert" />
     <None Include="shaders\pbr_prefilter_specular.frag" />

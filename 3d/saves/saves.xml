@@ -1,15 +1,15 @@
 <test>blah</test>
 <draw_wireframe>false</draw_wireframe>
 <cam>
-	<pos_world>10.1086, 2.67199, 1.06805</pos_world>
-	<altazimuth>-26.7551 deg, 100.44 deg, 0 deg</altazimuth>
-	<vfov>107 deg</vfov>
-	<clip_near>0.0625</clip_near>
+	<pos_world>6.62806, -1.39204, 2.1831</pos_world>
+	<altazimuth>-47.035 deg, 68.4 deg, 0 deg</altazimuth>
+	<vfov>70 deg</vfov>
+	<clip_near>0.033</clip_near>
 	<clip_far>1024</clip_far>
-	<base_speed>1</base_speed>
+	<base_speed>0.9</base_speed>
 	<fast_mult>4</fast_mult>
 </cam>
-<selected_skybox>8</selected_skybox>
+<selected_skybox>9</selected_skybox>
 <rotate_skybox>0 deg</rotate_skybox>
 <draw_cerberus>true</draw_cerberus>
 <spheres.albedo>1, 0.766, 0.336</spheres.albedo>
@@ -221,13 +221,14 @@
 		<uv_scale>4, 2</uv_scale>
 	</sphere>
 </spheres>
-<skybox_res>1024</skybox_res>
+<skybox_res>512</skybox_res>
 <PBR>
 	<irradiance_res>32</irradiance_res>
 	<prefilter_res>512</prefilter_res>
 	<brdf_LUT_res>512</brdf_LUT_res>
 	<prefilter_sample_count>1024</prefilter_sample_count>
 	<desired_prefilter_levels>10</desired_prefilter_levels>
+	<brdf_LUT_sample_count>4096</brdf_LUT_sample_count>
 </PBR>
-<visualize_prefilter_map_lod>2.02</visualize_prefilter_map_lod>
+<visualize_prefilter_map_lod>0.46</visualize_prefilter_map_lod>
 

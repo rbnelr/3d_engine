@@ -111,6 +111,35 @@ void draw_to_texture (FBO const& fbo, iv2 texture_size) {
 }
 
 //
+void draw_fullscreen_quad (Shader* s) {
+	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_SCISSOR_TEST);
+
+	struct Vertex_2d {
+		v4		pos_clip;
+		v2		uv;
+	};
+	const Data_Vertex_Layout layout = { (int)sizeof(Vertex_2d), {
+		{ "pos_clip",			FV4,	(int)offsetof(Vertex_2d, pos_clip) },
+		{ "uv",					FV2,	(int)offsetof(Vertex_2d, uv) },
+	}};
+
+	static Vertex_2d fullscreen_quad[] = {
+		{ v4(+1,-1, 0,1), v2(1,0) },
+		{ v4(+1,+1, 0,1), v2(1,1) },
+		{ v4(-1,-1, 0,1), v2(0,0) },
+		{ v4(-1,-1, 0,1), v2(0,0) },
+		{ v4(+1,+1, 0,1), v2(1,1) },
+		{ v4(-1,+1, 0,1), v2(0,1) },
+	};
+	static VBO vbo = stream_vertex_data(fullscreen_quad, sizeof(fullscreen_quad));
+	use_vertex_data(*s, layout, vbo);
+
+	draw_triangles(*s, 0, 6);
+}
+
 void draw_entire_cubemap (Shader* shad, FBO_Cube* fbo, iv2 cubemap_res) {
 	
 	glDisable(GL_BLEND);
