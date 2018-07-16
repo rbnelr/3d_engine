@@ -16,7 +16,10 @@ void gl_set_uniform (GLint loc, s32v4 val) {	glUniform4iv(	loc, 1, &val.x); }
 void gl_set_uniform (GLint loc, fm2 val) {		glUniformMatrix2fv(	loc, 1, GL_FALSE, &val.arr[0].x); }
 void gl_set_uniform (GLint loc, fm3 val) {		glUniformMatrix3fv(	loc, 1, GL_FALSE, &val.arr[0].x); }
 void gl_set_uniform (GLint loc, fm4 val) {		glUniformMatrix4fv(	loc, 1, GL_FALSE, &val.arr[0].x); }
-void gl_set_uniform (GLint loc, bool val) {		glUniform1i(	loc, val ? 1 : 0); }
+void gl_set_uniform (GLint loc, bool val) {		glUniform1i(	loc, (int)val); }
+void gl_set_uniform (GLint loc, bv2 val) {		glUniform2i(	loc, (int)val.x,(int)val.y); }
+void gl_set_uniform (GLint loc, bv3 val) {		glUniform3i(	loc, (int)val.x,(int)val.y,(int)val.z); }
+void gl_set_uniform (GLint loc, bv4 val) {		glUniform4i(	loc, (int)val.x,(int)val.y,(int)val.z,(int)val.w); }
 
 
 template <typename T> void set_uniform (Shader* shad, std::string const& name, T val) {
@@ -40,7 +43,7 @@ struct Uniform_Sharer {
 
 		MAT2, MAT3, MAT4,
 
-		BOOL,
+		BOOL, BV2, BV3, BV4,
 	};
 	struct Uniform_Val {
 		type_e	type;
@@ -60,6 +63,9 @@ struct Uniform_Sharer {
 			fm4		fm4_;
 
 			bool	bool_;
+			bv2		bv2_;
+			bv3		bv3_;
+			bv4		bv4_;
 		};
 
 		Uniform_Val () {}
@@ -76,6 +82,9 @@ struct Uniform_Sharer {
 		void set (m3	val) { type = MAT3;	fm3_  = val;	}
 		void set (m4	val) { type = MAT4;	fm4_  = val;	}
 		void set (bool	val) { type = BOOL;	bool_ = val;	}
+		void set (bv2	val) { type = BV2;	bv2_  = val;	}
+		void set (bv3	val) { type = BV3;	bv3_  = val;	}
+		void set (bv4	val) { type = BV4;	bv4_  = val;	}
 	};
 	static void gl_set_uniform (GLint loc, Uniform_Val const& val) {
 		switch (val.type) {
@@ -91,6 +100,9 @@ struct Uniform_Sharer {
 			case MAT3:	engine::gl_set_uniform(loc, val.fm3_ );	break;
 			case MAT4:	engine::gl_set_uniform(loc, val.fm4_ );	break;
 			case BOOL:	engine::gl_set_uniform(loc, val.bool_);	break;
+			case BV2:	engine::gl_set_uniform(loc, val.bv2_ );	break;
+			case BV3:	engine::gl_set_uniform(loc, val.bv3_ );	break;
+			case BV4:	engine::gl_set_uniform(loc, val.bv4_ );	break;
 			default: assert(not_implemented);
 		}
 	}
@@ -142,11 +154,17 @@ void bind_vertex_data (VBO const& vbo, Data_Vertex_Layout const& vertex_layout, 
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo.get_handle());
 
+	static int max_enabled_attribute_loc = 0;
+	for (int loc=0; loc <= max_enabled_attribute_loc; ++loc)
+		glDisableVertexAttribArray(loc);
+
 	for (auto& attr : vertex_layout.attributes) {
 
 		auto loc = glGetAttribLocation(shad.get_prog_handle(), attr.name.c_str());
 		if (loc < 0)
 			continue;
+
+		max_enabled_attribute_loc = max(max_enabled_attribute_loc, loc);
 
 		glEnableVertexAttribArray(loc);
 
@@ -210,6 +228,41 @@ void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, 
 }
 void bind_texture (Shader* shad, std::string const& uniform_name, int tex_unit, TextureCube const& tex) {
 	bind_texture(shad, uniform_name, tex_unit, tex, GL_TEXTURE_CUBE_MAP);
+}
+
+constexpr v2 quad_verts[] = { v2(1,0),v2(1,1),v2(0,0), v2(0,0),v2(1,1),v2(0,1) };
+
+template <typename VERTEX> void quad (flt r, VERTEX vert) {
+	for (auto p : quad_verts)
+		vert((p * 2 - 1) * r);
+}
+template <typename VERTEX> void generate_cube (flt r, VERTEX vert) {
+	quad(r, [&] (v2 p) {	vert(												v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_Z(deg(180)) *	rotate3_X(deg(180)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_X(deg(90)) *	rotate3_Y(deg(90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_X(deg(90)) *	rotate3_Y(deg(-90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(rotate3_Y(deg(180)) *	rotate3_X(deg(-90)) *	v3(p,r)); });
+	quad(r, [&] (v2 p) {	vert(						rotate3_X(deg(90)) *	v3(p,r)); });
+}
+
+m4 calc_perspective_matrix (flt vfov, flt clip_near, flt clip_far, flt aspect_w_over_h) {
+
+	v2 frustrum_scale = tan(vfov * 0.5f);
+	frustrum_scale.x *= aspect_w_over_h;
+
+	v2 frustrum_scale_inv = 1 / frustrum_scale;
+
+	f32 temp = clip_near -clip_far;
+
+	f32 x = frustrum_scale_inv.x;
+	f32 y = frustrum_scale_inv.y;
+	f32 a = (clip_far +clip_near) / temp;
+	f32 b = (2 * clip_far * clip_near) / temp;
+
+	return m4::rows(	x, 0, 0, 0,
+						0, y, 0, 0,
+						0, 0, a, b,
+						0, 0,-1, 0 );
 }
 
 //

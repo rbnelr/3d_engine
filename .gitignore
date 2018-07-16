@@ -9,6 +9,8 @@
 # ignore huge assets
 3d/assets/*
 
+*nsight_profiler.cfg
+
 # probably dont need pdb of c runtime
 vc*.pdb
 

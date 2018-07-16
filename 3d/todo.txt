@@ -9,9 +9,25 @@ use real 3d meshes
 implemented simple shader $include statement
 -> double includes are prevented by default
 
+shader preprocessor:
+-allow defining virtual shader files in source code, so that parts of shaders can be put into source code if desired
+ -> this also allows easy compile-time controlling the shader by having a shader file be defined in source code which #defines macros which then are used to control the shader at shader compile time
+     (as opposed to via uniforms) ex. in release mode wireframe rendering could be complied out this way
+  -> combined with dynamic reloading of the shaders this allows shader-complie-time switching via imgui
+  
+saving state as XML:
+ implemented saving
+ 
+saving state as XML:
+ implement loading
+
 TODO:
 
 implement pbr ibl
+
+BUG: shader reloading: filenames of changed files start overwriting each other ??
+
+common textures like common uniforms (what do do with texture units?)
 
 implement disk caching of ibl preprocessing
 
@@ -19,11 +35,54 @@ implement texture streaming
 
 shader preprocessor:
 -allow double include with special $command
--allow defining virtual shader files in source code, so that parts of shaders can be put into source code if desired
- -> this also allows easy compile-time controlling the shader by having a shader file be defined in source code which #defines macros which then are used to control the shader at shader compile time
-     (as opposed to via uniforms) ex. in release mode wireframe rendering could be complied out this way
-  -> combined with dynamic reloading of the shaders this allows shader-complie-time switching via imgui
+-implement error reporting where i parse the drivers error reports (find line number) and then find that line in my source and output that in the error message
 
 impove drawing abstraction
  -need to see what common patterns are
 
+OpenGL model:
+
+ Shaders:
+  have uniforms and for each a set value state
+  have textures bound to it via texture unit
+  can use global uniforms by declaring them in shader
+
+ Mesh:
+  indexed or not indexed array of vertecies that form privitives (triangles, lines etc.)
+  has vertex format (each data point like position, normal etc. is called an attribute)
+
+ Drawcall:
+  draws mesh from entire or part of VBO and EBO
+  can be instanced
+  different primitive mode: triangles or lines etc. (will always be triangles in my case, unless i use geometry shaders)
+  executes shader
+  - links shader to mesh (any attribute with matching name of the mesh us used in the shader)
+
+ 
+ global_uniform("wireframe", "enable", false);
+ 
+ static auto framebuf;
+ if (framebuf.res != screen_res)
+	framebuf = framebuffer_texture(screen_res, { PF_RGBF16, USE_MIPMAPS });
+ 
+ draw_to_texture(framebuf, "forward framebuffer");
+ {
+	 pass("opaque_pass", DEPTH_TEST, ALPHA_BLEND);
+	 
+	 auto s = shader("shader_file");
+ 
+	 s.uniform("val", true);
+	 s.uniform("iterations", 4);
+
+	 s.texture("tex", some_tex);
+
+	 s.uniform("model_to_world", translate4(v3(-3,0,0)));
+	 
+	 static auto sphere = static_mesh( gen_sphere(0.5f) );
+	 
+	 s.draw_triangles(sphere);
+ }
+
+ draw_to_screen(screen_res);
+ pass("postprocess", NO_DEPTH_TEST, NO_ALPHA_BLEND);
+ draw_fullscreen_quad(framebuf.tex);

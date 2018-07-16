@@ -1,0 +1,332 @@
+<test>blah</test>
+<draw_wireframe>false</draw_wireframe>
+<cam>
+	<pos_world>10.9678, 9.21143, 3.25213</pos_world>
+	<altazimuth>14.0462 deg, 69.3608 deg, 0 deg</altazimuth>
+	<vfov>70 deg</vfov>
+	<clip_near>0.033</clip_near>
+	<clip_far>1024</clip_far>
+	<base_speed>0.5</base_speed>
+	<fast_mult>4</fast_mult>
+</cam>
+<selected_skybox>5</selected_skybox>
+<rotate_skybox>165 deg</rotate_skybox>
+<draw_cerberus>true</draw_cerberus>
+<spheres.albedo>1, 0.766, 0.336</spheres.albedo>
+<metallic_steps>3</metallic_steps>
+<roughness_steps>7</roughness_steps>
+<spheres>
+	<sphere>
+		<name>Rusted Iron PBR Metal</name>
+		<pos>10, -1.5, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\rustediron2-Unreal-Engine\</folder>
+		<albedo_tex>rustediron2_basecolor.png</albedo_tex>
+		<metallic_tex>rustediron2_metallic.png</metallic_tex>
+		<roughness_tex>rustediron2_roughness.png</roughness_tex>
+		<normal_tex>rustediron2_normal.png</normal_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>2, 1</uv_scale>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex/>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Rusted Iron PBR Metal Material Alt</name>
+		<pos>10, 0, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets/pbr_mats/rustediron1-alt2-Unreal-Engine/</folder>
+		<albedo_tex>rustediron2_basecolor.png</albedo_tex>
+		<metallic_tex>rustediron2_metallic.png</metallic_tex>
+		<roughness_tex>rustediron2_roughness.png</roughness_tex>
+		<normal_tex>rustediron2_normal.png</normal_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.25</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex/>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Greasy Worn PBR Metal Material #1</name>
+		<pos>10, 1.5, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\greasy-metal-pan1-Unreal-Engine\</folder>
+		<albedo_tex>greasy-metal-pan1-albedo.png</albedo_tex>
+		<metallic_tex>greasy-metal-pan1-metal.png</metallic_tex>
+		<roughness_tex>greasy-metal-pan1-roughness.png</roughness_tex>
+		<normal_tex>greasy-metal-pan1-normal.png</normal_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.202</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex/>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>1 x 1 Block Rough Wall PBR Material</name>
+		<pos>12, 4.5, 1.5</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\blocksrough-Unreal-Engine\</folder>
+		<albedo_tex>blocksrough_basecolor.png</albedo_tex>
+		<metallic_tex>blocksrough_metallic.png</metallic_tex>
+		<roughness_tex>blocksrough_roughness.png</roughness_tex>
+		<normal_tex>blocksrough_normal.png</normal_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex>blocksrough_ambientocclusion.png</ao_tex>
+		<height_tex>blocksrough_height.png</height_tex>
+		<height_depth>-0.067</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Rusted Streaked Iron PBR Material</name>
+		<pos>10, 4.5, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\rustediron-streaks2-Unreal-Engine\</folder>
+		<albedo_tex>rustediron-streaks_basecolor.png</albedo_tex>
+		<metallic_tex>rustediron-streaks_metallic.png</metallic_tex>
+		<roughness_tex>rustediron-streaks_roughness.png</roughness_tex>
+		<normal_tex>rustediron-streaks_normal.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex/>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Scuffed Titanium PBR Metal Material</name>
+		<pos>10, 6, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets/pbr_mats\Titanium-Scuffed-Unreal-Engine\</folder>
+		<albedo_tex>Titanium-Scuffed_basecolor.png</albedo_tex>
+		<metallic_tex>Titanium-Scuffed_metallic.png</metallic_tex>
+		<roughness_tex>Titanium-Scuffed_roughness.png</roughness_tex>
+		<normal_tex>Titanium-Scuffed_normal.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex/>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Metal Plates Panel PBR Material</name>
+		<pos>10, 7.5, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets/pbr_mats\metalgrid3\</folder>
+		<albedo_tex>metalgrid3_basecolor.png</albedo_tex>
+		<metallic_tex>metalgrid3_metallic.png</metallic_tex>
+		<roughness_tex>metalgrid3_roughness.png</roughness_tex>
+		<normal_tex>metalgrid3_normal-dx.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex>metalgrid3_AO.png</ao_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Grid Textured Plastic PBR Material</name>
+		<pos>12, 0, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\plasticpattern1-ue\</folder>
+		<albedo_tex>plasticpattern1-albedo.png</albedo_tex>
+		<metallic_tex>plasticpattern1-metalness.png</metallic_tex>
+		<roughness_tex>plasticpattern1-roughness2.png</roughness_tex>
+		<normal_tex>plasticpattern1-normal2b.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex/>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Textured Rubber PBR Material</name>
+		<pos>12, 1.5, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\synth-rubber-unreal-engine\</folder>
+		<albedo_tex>synth-rubber-albedo.png</albedo_tex>
+		<metallic_tex>synth-rubber-metalness.png</metallic_tex>
+		<roughness_tex>synth-rubber-roughness.png</roughness_tex>
+		<normal_tex>synth-rubber-normal.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex/>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Paint Peeling Concrete PBR Material</name>
+		<pos>12, 3, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\paint-peeling-Unreal-Engine\</folder>
+		<albedo_tex>paint-peeling-albedo.png</albedo_tex>
+		<metallic_tex>paint-peeling-metalness.png</metallic_tex>
+		<roughness_tex>paint-peeling-roughness.png</roughness_tex>
+		<normal_tex>paint-peeling-normal.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex>paint-peeling-ao.png</ao_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Old Stone Tile PBR Material</name>
+		<pos>12, 4.5, 0</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\tiledstone-dx\</folder>
+		<albedo_tex>tiledstone1_basecolor.png</albedo_tex>
+		<metallic_tex>tiledstone1_metallic.png</metallic_tex>
+		<roughness_tex>tiledstone1_roughness.png</roughness_tex>
+		<normal_tex>tiledstone1_normal-DX.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex>tiledstone1_AO.png</ao_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex/>
+		<height_depth>0.1</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Rough Spaced Tile PBR Material</name>
+		<pos>12, 6, 1.5</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\spaced-tiles1-Unreal-Engine\</folder>
+		<albedo_tex>spaced-tiles1-albedo.png</albedo_tex>
+		<metallic_tex/>
+		<roughness_tex>spaced-tiles1-rough.png</roughness_tex>
+		<normal_tex>spaced-tiles1-normal.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex>spaced-tiles1-ao.png</ao_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex>spaced-tiles1-height.png</height_tex>
+		<height_depth>-0.076</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Old Worn Framed Wood PBR Material</name>
+		<pos>12, 7.5, 1.5</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\woodframe1-Unreal-Engine\</folder>
+		<albedo_tex>woodframe1b-albedo.png</albedo_tex>
+		<metallic_tex>woodframe1-metalness.png</metallic_tex>
+		<roughness_tex>woodframe1-rough.png</roughness_tex>
+		<normal_tex>woodframe1-normal2.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex>woodframe1-ao1.png</ao_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex>woodframe1-height.png</height_tex>
+		<height_depth>-0.156</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Old Stone Wall PBR Material</name>
+		<pos>12, 9, 1.5</pos>
+		<ori>0 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\pbr_mats\stonewall-Unreal-Engine\</folder>
+		<albedo_tex>stonewall-albedo.png</albedo_tex>
+		<metallic_tex>stonewall-metalness.png</metallic_tex>
+		<roughness_tex>stonewall-roughness.png</roughness_tex>
+		<normal_tex>stonewall-normal.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex>stonewall-ao.png</ao_tex>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>4, 2</uv_scale>
+		<height_tex>stonewall-height2.png</height_tex>
+		<height_depth>-0.066</height_depth>
+		<height_offs>0</height_offs>
+	</sphere>
+	<sphere>
+		<name>Learn OpenGL Parallax Toybox</name>
+		<pos>10.8, 10.36, 1.5</pos>
+		<ori>48.6 deg</ori>
+		<radius>0.5</radius>
+		<folder>assets\learn_opengl\toy_box\</folder>
+		<albedo_tex>toy_box_diffuse.png</albedo_tex>
+		<metallic_tex/>
+		<roughness_tex/>
+		<normal_tex>toy_box_normal.png</normal_tex>
+		<normal_flip_y>true</normal_flip_y>
+		<ao_tex/>
+		<height_tex>toy_box_disp.png</height_tex>
+		<height_depth>0.087</height_depth>
+		<height_offs>0</height_offs>
+		<albedo_srgb>1, 1, 1</albedo_srgb>
+		<metallic>0</metallic>
+		<roughness>0.2</roughness>
+		<uv_scale>2, 1</uv_scale>
+	</sphere>
+</spheres>
+<skybox_res>512</skybox_res>
+<PBR>
+	<irradiance_res>32</irradiance_res>
+	<prefilter_res>512</prefilter_res>
+	<brdf_LUT_res>512</brdf_LUT_res>
+	<prefilter_sample_count>1024</prefilter_sample_count>
+	<desired_prefilter_levels>10</desired_prefilter_levels>
+	<brdf_LUT_sample_count>4096</brdf_LUT_sample_count>
+	<displacement_min_layers_count>0</displacement_min_layers_count>
+	<displacement_max_layers_count>0</displacement_max_layers_count>
+</PBR>
+<visualize_prefilter_map_lod>0.46</visualize_prefilter_map_lod>
+

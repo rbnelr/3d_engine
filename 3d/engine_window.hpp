@@ -73,6 +73,10 @@ namespace engine {
 	};
 
 	struct Input {
+		
+		bool block_mouse = false;
+		bool block_keyboard = false;
+		bool blocked_by_typing = false;
 
 		iv2	wnd_size_px;
 
@@ -102,6 +106,35 @@ namespace engine {
 
 		Button buttons[GLFW_KEY_LAST +1] = {}; // lower 8 indecies are used as mouse button (GLFW_MOUSE_BUTTON_1 - GLFW_MOUSE_BUTTON_8), glfw does not seem to have anything assigned to them
 
+		bool is_down (int glfw_button) const {
+			if (block_keyboard) return false;
+			return buttons[glfw_button].is_down;
+		}
+		bool went_down (int glfw_button) const {
+			if (block_keyboard) return false;
+			return buttons[glfw_button].went_down;
+		}
+		bool went_up (int glfw_button) const {
+			if (block_keyboard) return false;
+			return buttons[glfw_button].went_up;
+		}
+		bool os_repeat (int glfw_button) const {
+			if (block_keyboard) return false;
+			return buttons[glfw_button].os_repeat;
+		}
+
+		bool key_combo (int glfw_mod_key_l, int glfw_mod_key_r, int glfw_key) {
+			if (blocked_by_typing) return false; // still trigger ctrl+key shortcut if keyboard is blocked, since key does not interfere with imgui (don't trigger during text typing)
+
+			auto& lc = buttons[glfw_mod_key_l];
+			auto& rc = buttons[glfw_mod_key_r];
+			auto& key = buttons[glfw_key];
+
+			return	( (lc.is_down ||   rc.is_down) &&  key.is_down ) && // all keys in combo must be down
+				(  lc.went_down || rc.went_down || key.went_down ); // but only trigger if one of them went down
+		}
+		bool ctrl_combo (int glfw_key) {	return key_combo(GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL, glfw_key); }
+		bool alt_combo (int glfw_key) {		return key_combo(GLFW_KEY_LEFT_ALT, GLFW_KEY_RIGHT_ALT, glfw_key); }
 
 		struct Event {
 
@@ -111,6 +144,8 @@ namespace engine {
 				BUTTON, // Button transition, no repeats
 				TYPING,
 			};
+
+			type_e	type;
 
 			union {
 				struct {
@@ -127,6 +162,9 @@ namespace engine {
 					utf32		codepoint;
 				} Typing;
 			};
+
+			Event () {} 
+			Event (type_e t): type{t} {} 
 		};
 
 		std::vector<Event>	events;
@@ -160,21 +198,48 @@ namespace engine {
 					get_win32_windowplacement();
 
 				GLFWmonitor* fullscreen_monitor = nullptr;
+				GLFWvidmode const* fullscreen_vidmode = nullptr;
 				{
 					int count;
 					GLFWmonitor** monitors = glfwGetMonitors(&count);
 
-					if (monitors)
-						fullscreen_monitor = monitors[0];
-				}
+					flt				min_dist = INF;
 
-				GLFWvidmode const* mode = glfwGetVideoMode(fullscreen_monitor);
+					iv2 wnd_pos;
+					iv2 wnd_sz;
+					glfwGetWindowPos(window, &wnd_pos.x,&wnd_pos.y);
+					glfwGetWindowSize(window, &wnd_sz.x,&wnd_sz.y);
+
+					v2 wnd_center = ((v2)wnd_pos +(v2)wnd_sz) / 2;
+
+					for (int i=0; i<count; ++i) {
+						
+						iv2 pos;
+						glfwGetMonitorPos(monitors[i], &pos.x,&pos.y);
+
+						auto* mode = glfwGetVideoMode(monitors[i]);
+
+						v2 monitor_center = ((v2)pos +(v2)iv2(mode->width,mode->height)) / 2;
+						
+						v2 offs = wnd_center -monitor_center;
+						flt dist = length(offs);
+
+						if (dist < min_dist) {
+							fullscreen_monitor = monitors[i];
+							min_dist = dist;
+
+							fullscreen_vidmode = mode;
+						}
+					}
+
+					assert(fullscreen_monitor);
+				}
 
 				iv2 res = fullscreen_resolution;
 				if (res.x < 0)
-					res = iv2(mode->width, mode->height);
+					res = iv2(fullscreen_vidmode->width, fullscreen_vidmode->height);
 
-				glfwSetWindowMonitor(window, fullscreen_monitor, 0, 0, res.x,res.y, mode->refreshRate);
+				glfwSetWindowMonitor(window, fullscreen_monitor, 0, 0, res.x,res.y, GLFW_DONT_CARE);
 
 			} else { // want windowed
 				assert(!was_windowed);
@@ -183,6 +248,11 @@ namespace engine {
 				auto sz = r.get_size();
 				glfwSetWindowMonitor(window, NULL, r.low.x,r.low.y, sz.x,sz.y, GLFW_DONT_CARE);
 
+				set_win32_windowplacement(); // Still refuses to return to maximized mode ??
+
+				//if (win32_windowplacement.showCmd == SW_MAXIMIZE) {
+				//	glfwMaximizeWindow(window); // Still refuses to return to maximized mode ????
+				//}
 			}
 
 			set_vsync(vsync_mode); // seemingly need to reset vsync sometimes when toggling fullscreen mode
@@ -231,6 +301,7 @@ namespace engine {
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+			glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
 			bool gl_vaos_required = true;
 
@@ -287,7 +358,7 @@ namespace engine {
 				close();
 		}
 
-		Input& poll_input () {
+		Input& poll_input (bool mouse_cursor_enabled) {
 
 			inp.mousecursor.delta_screen = 0;
 			inp.mousewheel.delta = 0;
@@ -298,6 +369,8 @@ namespace engine {
 			}
 
 			inp.events.clear();
+
+			glfwSetInputMode(window, GLFW_CURSOR, mouse_cursor_enabled ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
 
 			glfwPollEvents();
 
@@ -386,6 +459,8 @@ namespace engine {
 		}
 		static void glfw_mouse_scroll (GLFWwindow* window, double xoffset, double yoffset) {
 			Input& inp = ((Window*)glfwGetWindowUserPointer(window))->inp;
+
+			inp.mousewheel.delta += (flt)yoffset;
 
 			inp.events.push_back({ Input::Event::MOUSEWHEEL });
 			inp.events.back().Mousewheel.delta = (flt)yoffset;

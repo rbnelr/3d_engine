@@ -132,17 +132,28 @@
     <None Include="shaders\common.vert" />
     <None Include="shaders\default_3d.frag" />
     <None Include="shaders\default_3d.vert" />
-    <None Include="shaders\fullscreen_quad.frag" />
-    <None Include="shaders\fullscreen_quad.vert" />
+    <None Include="shaders\equirectangular_to_cubemap.frag" />
+    <None Include="shaders\equirectangular_to_cubemap.vert" />
     <None Include="shaders\imgui.frag" />
     <None Include="shaders\imgui.vert" />
+    <None Include="shaders\imgui_texture_window_2d.frag" />
+    <None Include="shaders\imgui_texture_window_2d.vert" />
+    <None Include="shaders\normalmapping.glsl" />
+    <None Include="shaders\pbr_brdf_LUT_precompute.frag" />
+    <None Include="shaders\pbr_formulas.glsl" />
+    <None Include="shaders\pbr_irradiance_convolve.frag" />
+    <None Include="shaders\pbr_irradiance_convolve.vert" />
+    <None Include="shaders\pbr_prefilter_specular.frag" />
+    <None Include="shaders\pbr_prefilter_specular.vert" />
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\skybox.vert" />
     <None Include="shaders\skybox_cubemap_gen.frag" />
     <None Include="shaders\skybox_cubemap_gen.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="save_file.hpp" />
     <ClInclude Include="deps\dear_imgui\imgui.h" />
+    <ClInclude Include="directory_watcher.hpp" />
     <ClInclude Include="engine_draw.hpp" />
     <ClInclude Include="engine_draw_to_texture.hpp" />
     <ClInclude Include="engine.hpp" />

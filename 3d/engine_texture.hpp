@@ -5,6 +5,7 @@
 #define STB_IMAGE_ONLY_BMP
 #define STB_IMAGE_ONLY_PNG
 #define STB_IMAGE_ONLY_JPG
+#define STB_IMAGE_ONLY_HDR
 
 #include "deps/stb/stb_image.h"
 
@@ -39,6 +40,21 @@ enum border_mode_e {
 	BORDER_CLAMP,
 	BORDER_COLOR,
 };
+
+template <typename FOREACH> int mipmap_chain (iv2 initial_size, FOREACH f) {
+	int mip_i = 0;
+	iv2 sz = initial_size;
+
+	for (;; ++mip_i) {
+		f(mip_i, sz);
+
+		if (all(sz == 1))
+			break;
+
+		sz = max(sz / 2, 1);
+	}
+	return mip_i;
+}
 
 // minimal but still useful texture class
 // if you need the size of the texture or the mipmap count just create a wrapper class
@@ -155,6 +171,8 @@ private:
 		}
 	}
 	
+public:
+
 	void set_active_mips (GLenum target, int first, int last) { // i am not sure that just setting abitrary values for these actually works correctly
 		glBindTexture(target, handle);
 
@@ -162,22 +180,6 @@ private:
 		glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, last);
 	}
 
-	template <typename FOREACH> int mipmap_chain (iv2 initial_size, FOREACH f) {
-		int mip_i = 0;
-		iv2 sz = initial_size;
-		
-		for (;; ++mip_i) {
-			f(mip_i, sz);
-
-			if (all(sz == 1))
-				break;
-
-			sz = max(sz / 2, 1);
-		}
-		return mip_i;
-	}
-public:
-	
 	void generate_mipmaps (GLenum target) {
 		glBindTexture(target, handle);
 
@@ -226,6 +228,8 @@ public:
 		} else {
 			assert(not_implemented);
 		}
+
+		glBindTexture(target, 0);
 	}
 	void reupload_mipmap_cube (std::vector<void const*> face_pixels, iv2 size_px, int mip, Options o) {
 		glBindTexture(GL_TEXTURE_CUBE_MAP, handle);
@@ -295,20 +299,30 @@ enum texture_type_e {
 
 class Texture2D : public Texture {
 	using Texture::generate;
+	using Texture::generate_mipmaps;
 public:
 	static Texture2D generate (Texture::Options o) {
 		Texture2D tex;
 		tex.generate(GL_TEXTURE_2D, o);
 		return tex;
 	}
+
+	void generate_mipmaps () {
+		generate_mipmaps(GL_TEXTURE_2D);
+	}
 };
 class TextureCube : public Texture {
 	using Texture::generate;
+	using Texture::generate_mipmaps;
 public:
 	static TextureCube generate (Texture::Options o) {
 		TextureCube tex;
 		tex.generate(GL_TEXTURE_CUBE_MAP, o);
 		return tex;
+	}
+
+	void generate_mipmaps () {
+		generate_mipmaps(GL_TEXTURE_CUBE_MAP);
 	}
 };
 
@@ -330,9 +344,10 @@ TextureCube alloc_cube_texture (iv2 size_px, Texture::Options o) {
 	return tex;
 }
 
-u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2* size_px, int* sizeof_pixel=nullptr) {
+void* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2* size_px, int* sizeof_pixel=nullptr) {
 	int channels;
 	int got_channels;
+	bool hdr = false;
 
 	switch (o.pixel_format) {
 		case PF_SRGB8:	channels = 3;	break;
@@ -342,21 +357,40 @@ u8* get_image2d_file_pixel (std::string const& filepath, Texture::Options o, iv2
 		case PF_LRGB8:	channels = 3;	break;
 		case PF_LRGBA8:	channels = 4;	break;
 
-		case PF_LRF:	
-		case PF_LRGBF:	
-		case PF_LRGBAF:	
+		case PF_LRF:	channels = 1;	hdr = true;	break;
+		case PF_LRGBF:	channels = 3;	hdr = true;	break;
+		case PF_LRGBAF:	channels = 4;	hdr = true;	break;
+
 		default: assert(not_implemented);
 	}
 
+	assert((stbi_is_hdr(filepath.c_str()) != 0) == hdr); // could load hdr as 8 bit ldr and vice versa, but just enforce fitting pixel formats for now
+
 	stbi_set_flip_vertically_on_load(true);
 
-	auto* pixels = stbi_load(filepath.c_str(), &size_px->x,&size_px->y, &got_channels, channels);
-	if (!pixels) {
-		fprintf(stderr, "Texture \"%s\" could not be loaded!\n", filepath.c_str());
-		return nullptr;
-	}
+	void* pixels;
 
-	if (sizeof_pixel) *sizeof_pixel = channels * sizeof(u8);
+	if (!hdr) {
+
+		pixels = stbi_load(filepath.c_str(), &size_px->x,&size_px->y, &got_channels, channels);
+		if (!pixels) {
+			fprintf(stderr, "Texture \"%s\" could not be loaded!\n", filepath.c_str());
+			return nullptr;
+		}
+
+		if (sizeof_pixel) *sizeof_pixel = channels * sizeof(u8);
+
+	} else {
+		
+		pixels = stbi_loadf(filepath.c_str(), &size_px->x,&size_px->y, &got_channels, channels);
+		if (!pixels) {
+			fprintf(stderr, "Texture \"%s\" could not be loaded!\n", filepath.c_str());
+			return nullptr;
+		}
+
+		if (sizeof_pixel) *sizeof_pixel = channels * sizeof(u8);
+
+	}
 	return pixels;
 }
 
@@ -372,7 +406,7 @@ Texture2D upload_texture_from_file (std::string const& filepath, Texture::Option
 
 	free(pixels);
 
-	*out_size_px = size_px;
+	if (out_size_px) *out_size_px = size_px;
 	return tex;
 }
 
@@ -383,7 +417,7 @@ enum _90_deg_rotation {
 	ROT_270,
 };
 
-TextureCube upload_cube_texture_from_multifile (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}, iv2* out_size_px=nullptr) {
+TextureCube upload_cube_texture_from_multifile (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, iv2* out_size_px=nullptr) {
 	
 	auto tex = TextureCube::generate(o);
 
@@ -399,41 +433,18 @@ TextureCube upload_cube_texture_from_multifile (std::string const& name_format, 
 
 		prev_size_px = size_px;
 
-		switch (rotation[face]) {
-			case ROT_0:		break;
-			case ROT_180:	inplace_rotate_180(pixels, sizeof_pixel, size_px);	break;
-
-			case ROT_90:	
-			case ROT_270: {
-				u8* unrotated_img = pixels;
-				pixels = (u8*)malloc(size_px.y * size_px.x * sizeof_pixel);
-
-				if (rotation[face] == ROT_90) {
-					copy_rotate_90(unrotated_img, pixels, sizeof_pixel, size_px);
-				} else {
-					//copy_rotate_270(unrotated_img, pixels, sizeof_pixel, size_px);
-				}
-
-				free(unrotated_img);
-			} break;
-
-			default: assert(not_implemented);
-		}
-
 		tex.reupload_mipmap_cube_face(pixels, size_px, face, 0, o);
 
 		free(pixels);
 	}
 
 	if (o.mipmap_mode == USE_MIPMAPS) {
-		tex.generate_mipmaps(GL_TEXTURE_CUBE_MAP);
+		tex.generate_mipmaps();
 	}
 
-	*out_size_px = prev_size_px;
+	if (out_size_px) *out_size_px = prev_size_px;
 	return tex;
 }
-
-void imgui_texture_window_register_texture (std::string const& name);
 
 struct Any_Texture {
 	texture_type_e		type;
@@ -477,11 +488,11 @@ struct Texture_Manager {
 		return &tex->tex2d;
 	}
 	
-	TextureCube* get_multifile_cubemap (std::string const& name, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
+	TextureCube* get_multifile_cubemap (std::string const& name, Texture::Options o, std::vector<std::string> const& face_names) {
 		auto tex = find_texture(name);
 		if (!tex) {
 			iv2 size_px;
-			auto tmp = upload_cube_texture_from_multifile(name, o, face_names, rotation, &size_px);
+			auto tmp = upload_cube_texture_from_multifile(name, o, face_names, &size_px);
 			tex = textures.emplace(name, make_unique<Any_Texture>(std::move(tmp), size_px, o)).first->second.get();
 		}
 
@@ -506,8 +517,8 @@ Texture2D* get_texture (std::string const& name, Texture::Options o) {
 	return texture_manager.get_texture(name, o);
 }
 
-TextureCube* get_multifile_cubemap (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names, std::vector<int> rotation = {0,0,0,0,0,0}) {
-	return texture_manager.get_multifile_cubemap(name_format, o, face_names, rotation);
+TextureCube* get_multifile_cubemap (std::string const& name_format, Texture::Options o, std::vector<std::string> const& face_names) {
+	return texture_manager.get_multifile_cubemap(name_format, o, face_names);
 }
 bool evict_texture (std::string const& name) {
 	return texture_manager.evict_texture(name);
@@ -531,89 +542,6 @@ Texture2D* tex_black () {			static Texture2D tex = upload_texture(lrgba(0,0,0,1)
 Texture2D* tex_grey () {			static Texture2D tex = upload_texture(lrgba(0.5f,0.5f,0.5f,1));	return &tex; }
 Texture2D* tex_white () {			static Texture2D tex = upload_texture(lrgba(1));				return &tex; }
 Texture2D* tex_identity_normal () {	static Texture2D tex = upload_texture(lrgba(0.5f,0.5f,1,1));	return &tex; }
-
-//
-struct Imgui_Texture_Window {
-	std::string	tex_name = "";
-
-	bool open = false;
-
-	// where to display texture
-	v2 pos_screen;
-	v2 size_screen;
-};
-
-std::vector< unique_ptr<Imgui_Texture_Window> > texture_windows;
-
-void draw_tex_2d (ImDrawList const* parent_list, ImDrawCmd const* cmd) {
-	auto* w = (Imgui_Texture_Window*)cmd->UserCallbackData;
-
-	Any_Texture* tex = texture_manager.find_texture(w->tex_name);
-	assert(tex->type == TEXTURE_2D);
-
-	auto* shad = use_shader("imgui_texture_window_2d");
-	assert(shad);
-
-
-	struct Vertex {
-		v2		pos_screen; // top down coords
-		v2		uv;
-	};
-	const Data_Vertex_Layout layout = { (int)sizeof(Vertex), {
-		{ "pos_screen",			FV2,	(int)offsetof(Vertex, pos_screen) },
-		{ "uv",					FV2,	(int)offsetof(Vertex, uv) },
-	}
-
-	std::vector<Vertex> vbo_data;
-
-	draw_stream_triangles(*shad, vbo_data, );
-}
-
-void imgui_texture_windows () {
-	
-	if (ImGui::Button("Texture Window")) {
-		auto first_not_open_window = std::find_if(texture_windows.begin(), texture_windows.end(), [] (unique_ptr<Imgui_Texture_Window> const& w) { return !w->open; });
-		if (first_not_open_window == texture_windows.end()) {
-			texture_windows.emplace_back( make_unique<Imgui_Texture_Window>() );
-			first_not_open_window = texture_windows.end() -1;
-		}
-
-		(*first_not_open_window)->open = true;
-	}
-
-	for (int i=0; i<(int)texture_windows.size(); ++i) {
-		auto& w = texture_windows[i];
-		if (!w->open) continue;
-
-		if (ImGui::Begin(prints("Texture Window %d", i).c_str(), &w->open)) {
-			
-			if (ImGui::BeginCombo("tex_name", w->tex_name.c_str())) {
-				for (auto& t : texture_manager.textures) {
-					bool is_selected = t.first.compare(w->tex_name) == 0;
-					if (ImGui::Selectable(t.first.c_str(), is_selected))
-						w->tex_name = t.first;
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-
-			Any_Texture* tex = texture_manager.find_texture(w->tex_name);
-
-			if (tex && tex->type == TEXTURE_2D) {
-				v2 display_size = ImGui::GetContentRegionAvailWidth();
-				display_size.y *= tex->size_px.y / tex->size_px.x;
-
-				auto pos_screen = ImGui::GetCursorScreenPos();
-
-
-				ImGui::GetWindowDrawList()->AddCallback(draw_tex_2d, w.get());
-			}
-
-			ImGui::End();
-		}
-	}
-}
 
 //
 }

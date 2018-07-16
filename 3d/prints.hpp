@@ -12,11 +12,12 @@
 namespace engine {
 	// Printf that outputs to a std::string
 	inline void vprints (std::string* s, cstr format, va_list vl) { // print 
+		size_t old_size = s->size();
 		for (;;) {
-			auto ret = vsnprintf(&(*s)[0], s->length()+1, format, vl); // i think i'm technically not allowed to overwrite the null terminator
+			auto ret = vsnprintf(&(*s)[old_size], s->size() -old_size +1, format, vl); // i think i'm technically not allowed to overwrite the null terminator
 			ret = max(0, ret);
-			bool was_bienough = (u32)ret < s->length()+1;
-			s->resize((u32)ret);
+			bool was_bienough = (u32)ret < (s->size() -old_size +1);
+			s->resize(old_size +(u32)ret);
 			if (was_bienough) break;
 			// buffer was to small, buffer size was increased
 			// now snprintf has to succeed, so call it again
@@ -35,8 +36,6 @@ namespace engine {
 		va_start(vl, format);
 
 		std::string ret;
-		ret.reserve(128); // overallocate to prevent calling printf twice in most cases
-		ret.resize(ret.capacity());
 		vprints(&ret, format, vl);
 
 		va_end(vl);

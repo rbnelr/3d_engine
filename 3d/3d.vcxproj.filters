@@ -27,12 +27,6 @@
     <None Include="shaders\imgui.vert">
       <Filter>shaders</Filter>
     </None>
-    <None Include="shaders\fullscreen_quad.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\fullscreen_quad.vert">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="shaders\skybox_cubemap_gen.frag">
       <Filter>shaders</Filter>
     </None>
@@ -52,6 +46,39 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\common.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\imgui_texture_window_2d.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\imgui_texture_window_2d.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_irradiance_convolve.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_irradiance_convolve.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\equirectangular_to_cubemap.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\equirectangular_to_cubemap.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_prefilter_specular.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_prefilter_specular.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\normalmapping.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_brdf_LUT_precompute.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbr_formulas.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>
@@ -144,6 +171,12 @@
     </ClInclude>
     <ClInclude Include="parse.hpp">
       <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="directory_watcher.hpp">
+      <Filter>src_reuseable</Filter>
+    </ClInclude>
+    <ClInclude Include="save_file.hpp">
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
