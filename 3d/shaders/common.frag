@@ -1,4 +1,4 @@
-#version 330 core // version 3.3
+$include "version.glsl"
 
 //$predefined_macros
 #define WIREFRAME 1

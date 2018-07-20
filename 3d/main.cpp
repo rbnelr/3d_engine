@@ -77,7 +77,7 @@ hm calc_world_to_cam (v3 cam_pos_world, v3 cam_altazimuth) {
 	return hm(convert_to_m3(rot)) * translateH(-cam_pos_world);
 }
 
-struct Camera {
+struct Fly_Camera {
 	v3		pos_world = v3(0.1f, -2, +1);
 	
 	v3		altazimuth = v3(0,deg(50),0); // x: azimuth (along horizon) y: altitude (up/down) z: roll
@@ -127,7 +127,7 @@ struct Camera {
 	}
 
 	void imgui (Save* save, cstr name) {
-		if (imgui::TreeNodeEx("cam", ImGuiTreeNodeFlags_CollapsingHeader)) {
+		if (imgui::TreeNodeEx(name, ImGuiTreeNodeFlags_CollapsingHeader)) {
 
 			imgui::DragFloat3("pos_world", &pos_world.x, 1.0f / 100);
 			imgui::DragFloat3("altazimuth", &altazimuth.x, 1.0f / 100);
@@ -143,7 +143,7 @@ struct Camera {
 			imgui::TreePop();
 		}
 
-		save->begin("cam");
+		save->begin(name);
 		{
 			save->value("pos_world", &pos_world);
 			save->angle("altazimuth", &altazimuth);
@@ -263,6 +263,9 @@ int main () {
 
 		shader_manager.poll_reload_shaders(frame_i);
 
+		//
+		inline_shader("version.glsl", "#version 330 core // version 3.3");
+
 		set_shared_uniform("common", "screen_size", (v2)inp.wnd_size_px);
 		set_shared_uniform("common", "mcursor_pos", inp.mouse_cursor_pos_screen_buttom_up_pixel_center());
 
@@ -272,23 +275,25 @@ int main () {
 		set_shared_uniform("common", "cubemap_z_up_to_gl_ori", rotate3_X(+deg(90)));
 
 		static bool draw_wireframe = false;
-		save->value("draw_wireframe", &draw_wireframe);
-		imgui::Checkbox("draw_wireframe", &draw_wireframe);
-		if (inp.went_down('P'))
-			draw_wireframe = !draw_wireframe;
+		{
+			save->value("draw_wireframe", &draw_wireframe);
+			imgui::Checkbox("draw_wireframe", &draw_wireframe);
+			if (inp.went_down('P'))
+				draw_wireframe = !draw_wireframe;
 
-		set_shared_uniform("wireframe", "enable", draw_wireframe);
+			set_shared_uniform("wireframe", "enable", draw_wireframe);
+		}
 
 		// Camera
-		static Camera cam;
+		static Fly_Camera flycam;
 
-		cam.control(inp, dt);
-		cam.imgui(save, "cam");
+		flycam.control(inp, dt);
+		flycam.imgui(save, "flycam");
 
-		hm	world_to_cam = calc_world_to_cam(cam.pos_world, cam.altazimuth);
-		hm	cam_to_world = calc_cam_to_world(cam.pos_world, cam.altazimuth);
+		hm	world_to_cam = calc_world_to_cam(flycam.pos_world, flycam.altazimuth);
+		hm	cam_to_world = calc_cam_to_world(flycam.pos_world, flycam.altazimuth);
 
-		m4	cam_to_clip = calc_perspective_matrix(cam.vfov, cam.clip_near, cam.clip_far, (flt)inp.wnd_size_px.x / (flt)inp.wnd_size_px.y);
+		m4	cam_to_clip = calc_perspective_matrix(flycam.vfov, flycam.clip_near, flycam.clip_far, (flt)inp.wnd_size_px.x / (flt)inp.wnd_size_px.y);
 		
 		set_shared_uniform("cam", "world_to_cam", world_to_cam.m4());
 		set_shared_uniform("cam", "cam_to_world", cam_to_world.m4());
@@ -1051,27 +1056,29 @@ int main () {
 					imgui::Checkbox("test_inline_shader_reloading", &test_inline_shader_reloading);
 
 					inline_shader("fullscreen_quad.vert", R"_SHAD(
-						$include "common.vert"
-					
+						$include "version.glsl"
+
 						in		vec4	pos_clip;
 						in		vec2	uv;
 					
 						out		vec2	vs_uv;
 					
-						void vert () {
+						void main () {
 							gl_Position =		pos_clip;
 							vs_uv =				uv;
 						}
 					)_SHAD");
 					inline_shader("fullscreen_quad.frag", prints(R"_SHAD(
-						$include "common.frag"
-					
+						$include "version.glsl"
+						
 						in		vec2	vs_uv;
 					
+						out		vec4	frag_col;
+						
 						uniform sampler2D tex;
-					
-						vec4 frag () {
-							return %d != 0 ? vec4(0,1,0,1) : texture(tex, vs_uv);
+						
+						void main () {
+							frag_col = %d != 0 ? vec4(0,1,0,1) : texture(tex, vs_uv);
 						}
 					)_SHAD", test_inline_shader_reloading && (frame_i / 60) % 2)); // That this just works is crazy
 
