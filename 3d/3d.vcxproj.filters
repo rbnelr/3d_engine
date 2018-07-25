@@ -30,9 +30,6 @@
     <None Include="shaders\skybox_cubemap_gen.frag">
       <Filter>shaders</Filter>
     </None>
-    <None Include="shaders\skybox_cubemap_gen.vert">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="shaders\skybox.frag">
       <Filter>shaders</Filter>
     </None>
@@ -57,19 +54,10 @@
     <None Include="shaders\pbr_irradiance_convolve.frag">
       <Filter>shaders</Filter>
     </None>
-    <None Include="shaders\pbr_irradiance_convolve.vert">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="shaders\equirectangular_to_cubemap.frag">
       <Filter>shaders</Filter>
     </None>
-    <None Include="shaders\equirectangular_to_cubemap.vert">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="shaders\pbr_prefilter_specular.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\pbr_prefilter_specular.vert">
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\normalmapping.glsl">

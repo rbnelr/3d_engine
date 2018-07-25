@@ -21,11 +21,12 @@ saving state as XML:
 saving state as XML:
  implement loading
 
-TODO:
-
 implement pbr ibl
 
 BUG: shader reloading: filenames of changed files start overwriting each other ??
+-> fixed?
+
+TODO:
 
 common textures like common uniforms (what do do with texture units?)
 
